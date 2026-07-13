@@ -2,7 +2,7 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Same dark theme tokens as apps/web — the ledger renders on the shadcn
+/* Same dark theme tokens as apps/web — the proof renders on the shadcn
    variable vocabulary (background/foreground/muted/border/…). */
 :root {
   --background: 0 0% 0.4%;

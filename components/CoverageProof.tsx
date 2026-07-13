@@ -32,7 +32,7 @@ function verdictOf(status: StatusCoverage): 'ok' | 'gap' | 'undoc' {
   return status.assertions > 0 ? 'ok' : 'gap';
 }
 
-/** Render {slug} path segments in a muted italic so parameters read apart */
+/** Render {slug} path segments in a muted tone so parameters read apart */
 function PathInk({ specPath }: { specPath: string }) {
   const parts = specPath.split(/(\{[^}]+\})/g).filter(Boolean);
   return (
@@ -66,14 +66,14 @@ function SnippetBlock({ snippet, code }: { snippet: TestSnippet; code: string })
   return (
     <figure className="flex flex-col gap-2">
       <figcaption className="flex items-baseline gap-3">
-        <span className="lg-serif text-base italic">“{snippet.title}”</span>
-        <span className="lg-leader" aria-hidden />
+        <span className="text-xs font-medium">{snippet.title}</span>
+        <span className="sp-leader" aria-hidden />
         <span className="shrink-0 text-[0.65rem] text-muted-foreground">L{snippet.startLine}</span>
       </figcaption>
-      <pre className="lg-codeblock py-2">
+      <pre className="sp-codeblock py-2">
         {lines.map((line, i) => (
-          <div key={i} className="lg-codeline" data-hit={hitRe.test(line) ? '' : undefined}>
-            <span className="lg-lineno">{snippet.startLine + i}</span>
+          <div key={i} className="sp-codeline" data-hit={hitRe.test(line) ? '' : undefined}>
+            <span className="sp-lineno">{snippet.startLine + i}</span>
             <code>{line || ' '}</code>
           </div>
         ))}
@@ -91,19 +91,19 @@ function EvidencePanel({
 }) {
   return (
     <Sheet open={evidence !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="ledger-root w-full overflow-y-auto border-l border-[var(--lg-hair-strong)] sm:max-w-2xl">
+      <SheetContent className="proof-root w-full overflow-y-auto border-l border-[var(--sp-hair-strong)] sm:max-w-2xl">
         {evidence && (
           <>
             <SheetHeader className="text-left">
               <SheetTitle className="flex items-baseline gap-3 font-normal">
                 <span
-                  className="lg-method shrink-0 uppercase"
+                  className="sp-method shrink-0 uppercase"
                   data-method={evidence.operation.method}
                 >
                   {evidence.operation.method}
                 </span>
                 <span className="font-mono text-sm">{evidence.operation.specPath}</span>
-                <span className="lg-code text-lg font-semibold" data-class={evidence.status.code[0]}>
+                <span className="sp-code text-lg font-semibold" data-class={evidence.status.code[0]}>
                   {evidence.status.code}
                 </span>
               </SheetTitle>
@@ -111,7 +111,7 @@ function EvidencePanel({
                 {evidence.status.documented ? (
                   evidence.status.description
                 ) : (
-                  <span className="text-[var(--lg-undoc)]">
+                  <span className="text-[var(--sp-undoc)]">
                     Asserted in tests but absent from the OpenAPI spec — document it or drop it.
                   </span>
                 )}
@@ -137,10 +137,10 @@ function EvidencePanel({
 }
 
 // ============================================================================
-// Status ledger (accordion body)
+// Status list (accordion body)
 // ============================================================================
 
-function StatusLedger({
+function StatusList({
   operation,
   onShowEvidence
 }: {
@@ -155,7 +155,7 @@ function StatusLedger({
         return (
           <div key={status.code} className="flex items-baseline gap-3 py-1.5">
             <span
-              className="lg-code w-8 shrink-0 text-sm font-semibold"
+              className="sp-code w-8 shrink-0 text-sm font-semibold"
               data-class={status.code[0]}
             >
               {status.code}
@@ -165,7 +165,7 @@ function StatusLedger({
                 ? status.description
                 : 'asserted in tests, but absent from the OpenAPI spec'}
             </span>
-            <span className="lg-leader" aria-hidden />
+            <span className="sp-leader" aria-hidden />
             {verdict === 'ok' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">
                 {status.assertions} assertion{status.assertions === 1 ? '' : 's'}
@@ -174,7 +174,7 @@ function StatusLedger({
             {hasEvidence ? (
               <button
                 type="button"
-                className="lg-stamp shrink-0"
+                className="sp-stamp shrink-0"
                 data-verdict={verdict}
                 title="Show the test code"
                 onClick={() => onShowEvidence({ operation, status })}
@@ -182,7 +182,7 @@ function StatusLedger({
                 {verdict === 'ok' ? 'VERIFIED' : 'UNDOCUMENTED'} ⌕
               </button>
             ) : (
-              <span className="lg-stamp shrink-0" data-verdict={verdict}>
+              <span className="sp-stamp shrink-0" data-verdict={verdict}>
                 {verdict === 'ok' ? 'VERIFIED' : verdict === 'gap' ? 'NO TEST' : 'UNDOCUMENTED'}
               </span>
             )}
@@ -197,8 +197,8 @@ function StatusLedger({
             <span className="text-foreground/70">{operation.testFile}</span>
           </span>
         ) : (
-          <span className="lg-stamp" data-verdict="gap">
-            NO ROUTE.TEST.TS — THIS OPERATION SHIPS UNTESTED
+          <span className="sp-stamp" data-verdict="gap">
+            NO TEST FILE — THIS OPERATION SHIPS UNTESTED
           </span>
         )}
       </div>
@@ -221,17 +221,17 @@ function OperationRow({
   return (
     <AccordionItem
       value={`${operation.method} ${operation.specPath}`}
-      className="lg-oprow border-b-0"
+      className="sp-oprow border-b-0"
     >
       <AccordionTrigger className="gap-3 px-3 py-3.5 hover:no-underline">
-        <span className="lg-method w-16 shrink-0 uppercase" data-method={operation.method}>
+        <span className="sp-method w-16 shrink-0 uppercase" data-method={operation.method}>
           {operation.method}
         </span>
         <PathInk specPath={operation.specPath} />
-        <span className="lg-leader hidden sm:block" aria-hidden />
-        <span className="lg-marks shrink-0" aria-hidden>
+        <span className="sp-leader hidden sm:block" aria-hidden />
+        <span className="sp-marks shrink-0" aria-hidden>
           {operation.statuses.map((status) => (
-            <span key={status.code} className="lg-mark" data-state={verdictOf(status)} />
+            <span key={status.code} className="sp-mark" data-state={verdictOf(status)} />
           ))}
         </span>
         <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
@@ -240,11 +240,11 @@ function OperationRow({
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-5">
         {operation.summary && (
-          <p className="lg-serif mb-3 pl-[calc(0.6rem+3px)] text-base italic text-muted-foreground">
+          <p className="mb-3 pl-[calc(0.6rem+3px)] text-xs text-muted-foreground">
             {operation.summary}
           </p>
         )}
-        <StatusLedger operation={operation} onShowEvidence={onShowEvidence} />
+        <StatusList operation={operation} onShowEvidence={onShowEvidence} />
       </AccordionContent>
     </AccordionItem>
   );
@@ -264,19 +264,19 @@ function TagSection({
   onShowEvidence: (evidence: Evidence) => void;
 }) {
   return (
-    <section className="lg-rise" style={{ '--lg-stagger': index + 3 } as React.CSSProperties}>
+    <section className="sp-rise" style={{ '--sp-stagger': index + 3 } as React.CSSProperties}>
       <header className="mb-1 flex items-baseline gap-4 border-b pb-2">
         <span className="text-[0.65rem] tracking-[0.2em] text-muted-foreground">
-          № {String(index + 1).padStart(2, '0')}
+          {String(index + 1).padStart(2, '0')}
         </span>
-        <h2 className="lg-serif text-3xl">{tag.tag}</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-[0.08em]">{tag.tag}</h2>
         <span className="hidden text-xs text-muted-foreground sm:block">{tag.description}</span>
-        <span className="lg-leader" aria-hidden />
+        <span className="sp-leader" aria-hidden />
         <span className="text-sm tabular-nums text-muted-foreground">
           <span className="text-foreground">{tag.coveredCount}</span>/{tag.totalCount} verified
         </span>
       </header>
-      <Accordion type="multiple" className="divide-y divide-[var(--lg-hair)]">
+      <Accordion type="multiple" className="divide-y divide-[var(--sp-hair)]">
         {tag.operations.map((operation) => (
           <OperationRow
             key={`${operation.method} ${operation.specPath}`}
@@ -290,10 +290,10 @@ function TagSection({
 }
 
 // ============================================================================
-// Ledger
+// Proof
 // ============================================================================
 
-export function CoverageLedger({
+export function CoverageProof({
   report,
   compiledAt
 }: {
@@ -310,40 +310,28 @@ export function CoverageLedger({
   ];
 
   return (
-    <div className="ledger-root ledger-page min-h-screen">
+    <div className="proof-root proof-page min-h-screen">
       <div className="mx-auto flex max-w-4xl flex-col gap-14 px-6 py-16">
         {/* masthead */}
-        <header className="lg-rise" style={{ '--lg-stagger': 0 } as React.CSSProperties}>
-          <p className="mb-6 flex items-center gap-3 text-[0.65rem] tracking-[0.3em] text-muted-foreground">
-            OMNILENS <span className="lg-leader" aria-hidden /> ENGINEERING AUDIT
-          </p>
+        <header className="sp-rise" style={{ '--sp-stagger': 0 } as React.CSSProperties}>
           <div className="flex flex-wrap items-end justify-between gap-6">
-            <h1 className="lg-serif max-w-md text-6xl leading-[0.95]">
-              The API <em className="text-[var(--lg-ok)]">Test</em> Ledger
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-tight">SpecProof</h1>
             <div className="text-right">
-              <div className="lg-serif text-6xl tabular-nums leading-none">
+              <div className="text-5xl font-semibold tabular-nums leading-none">
                 {Math.round((report.coveredCount / Math.max(report.totalCount, 1)) * 100)}
-                <span className="text-3xl text-muted-foreground">%</span>
+                <span className="text-2xl font-normal text-muted-foreground">%</span>
               </div>
-              <div className="lg-serif mt-1 text-sm italic text-muted-foreground">
-                of documented responses verified by a test
+              <div className="mt-2 text-[0.65rem] tracking-[0.14em] text-muted-foreground">
+                DOCUMENTED RESPONSES VERIFIED
               </div>
             </div>
           </div>
-          <p className="mt-6 max-w-xl text-xs leading-relaxed text-muted-foreground">
-            Every operation in the OpenAPI spec, cross-examined against the colocated{' '}
-            <span className="text-foreground/70">route.test.ts</span> suites. A response status
-            is <span className="text-[var(--lg-ok)]">verified</span> when at least one test
-            asserts it; <span className="text-[var(--lg-gap)]">gaps</span> are documented
-            behavior no test exercises. Click a stamped verdict to read the test itself.
-          </p>
         </header>
 
         {/* summary strip */}
         <dl
-          className="lg-rise lg-rule-double flex flex-wrap items-baseline gap-x-10 gap-y-3 border-b py-3"
-          style={{ '--lg-stagger': 1 } as React.CSSProperties}
+          className="sp-rise sp-rule-double flex flex-wrap items-baseline gap-x-10 gap-y-3 border-b py-3"
+          style={{ '--sp-stagger': 1 } as React.CSSProperties}
         >
           {facts.map(([label, value]) => (
             <div key={label} className="flex items-baseline gap-2.5">
@@ -360,29 +348,37 @@ export function CoverageLedger({
 
         {/* legend */}
         <div
-          className="lg-rise -mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-[0.65rem] tracking-[0.14em] text-muted-foreground"
-          style={{ '--lg-stagger': 2 } as React.CSSProperties}
+          className="sp-rise -mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-[0.65rem] tracking-[0.14em] text-muted-foreground"
+          style={{ '--sp-stagger': 2 } as React.CSSProperties}
         >
           <span className="flex items-center gap-2">
-            <span className="lg-mark" data-state="ok" /> VERIFIED
+            <span className="sp-mark" data-state="ok" /> VERIFIED
           </span>
           <span className="flex items-center gap-2">
-            <span className="lg-mark" data-state="gap" /> NO TEST
+            <span className="sp-mark" data-state="gap" /> NO TEST
           </span>
           <span className="flex items-center gap-2">
-            <span className="lg-mark" data-state="undoc" /> UNDOCUMENTED
+            <span className="sp-mark" data-state="undoc" /> UNDOCUMENTED
           </span>
         </div>
 
         {/* tag sections */}
-        {report.tags.map((tag, i) => (
-          <TagSection key={tag.tag} tag={tag} index={i} onShowEvidence={setEvidence} />
-        ))}
-
-        <footer className="lg-rule-double pt-4 text-[0.65rem] tracking-[0.18em] text-muted-foreground">
-          COMPILED FROM OPENAPI.GENERATED.JSON + ROUTE.TEST.TS ASSERTIONS · STATUSES PARSED FROM{' '}
-          <span className="text-foreground/60">EXPECT(RES.STATUS)</span> CALLS
-        </footer>
+        {report.operationCount === 0 ? (
+          <section
+            className="sp-rise border border-dashed px-6 py-10 text-center"
+            style={{ '--sp-stagger': 3 } as React.CSSProperties}
+          >
+            <p className="text-sm font-semibold tracking-[0.14em]">NO API DEFINITION PROVIDED</p>
+            <div className="mt-4 flex flex-col gap-1 text-xs text-muted-foreground">
+              <code className="text-foreground/70">SPECPROOF_REPO=/path/to/repo</code>
+              <code className="text-foreground/70">bun run generate:proof</code>
+            </div>
+          </section>
+        ) : (
+          report.tags.map((tag, i) => (
+            <TagSection key={tag.tag} tag={tag} index={i} onShowEvidence={setEvidence} />
+          ))
+        )}
       </div>
 
       <EvidencePanel evidence={evidence} onClose={() => setEvidence(null)} />

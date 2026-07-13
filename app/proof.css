@@ -1,0 +1,217 @@
+/* ============================================================================
+   SpecProof — functional coverage report
+   Single-typeface Geist Mono tabulation: dotted index leaders, punch-card
+   status marks, stamped verdicts. All rules scoped under .proof-root.
+   ============================================================================ */
+
+.proof-root {
+  --sp-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* method colors — same accent vocabulary as the marketing/POC surfaces */
+  --sp-get: #00e5a0;
+  --sp-post: #4d9fff;
+  --sp-put: #f59e0b;
+  --sp-delete: #ef4444;
+  --sp-patch: #c084fc;
+
+  /* verdicts */
+  --sp-ok: #00e5a0;
+  --sp-gap: #ff5c5c;
+  --sp-undoc: #f5a623;
+
+  --sp-ink: #e6e6e2;
+  --sp-faint: rgba(255, 255, 255, 0.38);
+  --sp-hair: rgba(255, 255, 255, 0.09);
+  --sp-hair-strong: rgba(255, 255, 255, 0.22);
+
+  font-family: var(--sp-mono);
+  color: var(--sp-ink);
+}
+
+.proof-page {
+  position: relative;
+  isolation: isolate;
+}
+
+/* faint top glow behind content */
+.proof-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(120% 40% at 50% -5%, rgba(0, 229, 160, 0.055), transparent 60%);
+  pointer-events: none;
+}
+
+/* ---- entrance choreography ------------------------------------------------ */
+@keyframes sp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sp-rise {
+  opacity: 0;
+  animation: sp-rise 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--sp-stagger, 0) * 70ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-rise {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ---- proof rules ----------------------------------------------------------- */
+.sp-rule-double {
+  border-top: 3px double var(--sp-hair-strong);
+}
+
+.sp-leader {
+  flex: 1 1 2rem;
+  min-width: 2rem;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.18);
+  transform: translateY(-0.3em);
+}
+
+/* ---- method chips ----------------------------------------------------------- */
+.sp-method {
+  --mc: var(--sp-faint);
+  color: var(--mc);
+  border-left: 3px solid var(--mc);
+  padding-left: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.9;
+  transition: border-left-width 150ms ease;
+}
+.sp-method[data-method="get"] { --mc: var(--sp-get); }
+.sp-method[data-method="post"] { --mc: var(--sp-post); }
+.sp-method[data-method="put"] { --mc: var(--sp-put); }
+.sp-method[data-method="delete"] { --mc: var(--sp-delete); }
+.sp-method[data-method="patch"] { --mc: var(--sp-patch); }
+
+.sp-oprow:hover .sp-method,
+.sp-oprow[data-state="open"] .sp-method {
+  border-left-width: 6px;
+}
+
+/* ---- punch-card status marks (trigger row) ---------------------------------- */
+.sp-marks {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.sp-mark {
+  width: 7px;
+  height: 11px;
+  border: 1px solid var(--sp-faint);
+  background: transparent;
+}
+.sp-mark[data-state="ok"] {
+  background: var(--sp-ok);
+  border-color: var(--sp-ok);
+}
+.sp-mark[data-state="gap"] {
+  border-color: var(--sp-gap);
+  border-style: dashed;
+}
+.sp-mark[data-state="undoc"] {
+  border-color: var(--sp-undoc);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--sp-undoc) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+/* ---- status-code ink by class ------------------------------------------------ */
+.sp-code[data-class="2"] { color: var(--sp-ok); }
+.sp-code[data-class="3"] { color: var(--sp-post); }
+.sp-code[data-class="4"] { color: var(--sp-undoc); }
+.sp-code[data-class="5"] { color: var(--sp-gap); }
+
+/* ---- verdict stamps ----------------------------------------------------------- */
+.sp-stamp {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  padding: 0.18rem 0.5rem;
+  white-space: nowrap;
+}
+.sp-stamp[data-verdict="ok"] {
+  color: var(--sp-ok);
+  border: 1px solid color-mix(in srgb, var(--sp-ok) 45%, transparent);
+  background: color-mix(in srgb, var(--sp-ok) 8%, transparent);
+}
+.sp-stamp[data-verdict="gap"] {
+  color: var(--sp-gap);
+  border: 1px dashed color-mix(in srgb, var(--sp-gap) 55%, transparent);
+}
+.sp-stamp[data-verdict="undoc"] {
+  color: var(--sp-undoc);
+  border: 1px solid color-mix(in srgb, var(--sp-undoc) 45%, transparent);
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--sp-undoc) 10%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+/* clickable stamps (verified / undocumented open the test-code panel) */
+button.sp-stamp {
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+button.sp-stamp:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 14px -4px color-mix(in srgb, currentColor 55%, transparent);
+}
+button.sp-stamp:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* ---- test-code panel ----------------------------------------------------------- */
+.sp-codeblock {
+  border: 1px solid var(--sp-hair);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.72rem;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.sp-codeline {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  padding-right: 1rem;
+  white-space: pre;
+}
+.sp-codeline[data-hit] {
+  background: color-mix(in srgb, var(--sp-ok) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--sp-ok);
+}
+.sp-lineno {
+  padding-right: 0.9rem;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.22);
+  user-select: none;
+}
+.sp-codeline[data-hit] .sp-lineno {
+  color: var(--sp-ok);
+}
+
+/* ---- row hover bleed ----------------------------------------------------------- */
+.sp-oprow {
+  transition: background-color 180ms ease;
+}
+.sp-oprow:hover,
+.sp-oprow[data-state="open"] {
+  background: rgba(255, 255, 255, 0.025);
+}

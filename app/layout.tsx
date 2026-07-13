@@ -3,9 +3,9 @@ import { ReactNode } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Test Ledger — OmniLens",
+  title: "SpecProof",
   description:
-    "Every documented API operation and status code, cross-examined against the route test suites."
+    "Every documented API operation and status code, cross-examined against the repo's test suites."
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>

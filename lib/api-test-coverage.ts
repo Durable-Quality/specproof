@@ -1,41 +1,81 @@
-// Coverage analyzer for Test Ledger — the source the generated ledger is
+// Coverage analyzer for SpecProof — the source the generated proof is
 // compiled from.
 //
-// Joins two sources of truth in the audited OmniLens checkout:
-//   1. The generated OpenAPI spec (apps/web/app/api/openapi/openapi.generated.json) —
-//      every documented operation and its response status codes.
-//   2. The colocated route tests (apps/web/app/api/**/route.test.ts) — which
-//      statuses each method actually has assertions for, parsed from the
-//      `describe("METHOD /api/…")` blocks and their `.status).toBe(NNN)`
+// Joins two sources of truth in the audited target repo:
+//   1. The OpenAPI spec (auto-discovered `openapi*.json` / `swagger*.json`,
+//      or SPECPROOF_SPEC) — every documented operation and its response status
+//      codes.
+//   2. The repo's test files (`*.test.ts` / `*.test.tsx` / `*.test.js`) —
+//      which statuses each operation actually has assertions for, parsed from
+//      `describe("METHOD /path")` blocks and their `.status).toBe(NNN)`
 //      expectations.
 //
-// Only the generator script (scripts/generate-ledger.ts) and the contract
+// Only the generator script (scripts/generate-proof.ts) and the contract
 // tests run this; the app itself renders the checked-in
-// app/ledger.generated.json artifact. The output is deterministic for a given
-// state of the OmniLens sources — that is what makes the artifact diffable
-// and the drift guard possible.
+// app/proof.generated.json artifact. The output is deterministic for a given
+// state of the target repo — that is what makes the artifact diffable and the
+// drift guard possible.
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 /**
- * The OmniLens checkout the ledger audits. Configurable via the OMNILENS_REPO
- * env var; defaults to a sibling checkout next to this repo
- * (…/GitHub/test-ledger -> …/GitHub/OmniLens).
+ * The repo the proof audits. Configurable via the SPECPROOF_REPO env var;
+ * defaults to the directory SpecProof is run from, so installing it into a
+ * repo and running the generator there just works.
  */
-export const OMNILENS_ROOT = process.env.OMNILENS_REPO
-  ? path.resolve(process.env.OMNILENS_REPO)
-  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../OmniLens');
+export const TARGET_REPO_ROOT = process.env.SPECPROOF_REPO
+  ? path.resolve(process.env.SPECPROOF_REPO)
+  : process.cwd();
 
-/** The app whose spec + tests the ledger audits. */
-export const WEB_ROOT = path.join(OMNILENS_ROOT, 'apps/web');
+/** Directories never worth scanning for specs or tests */
+const EXCLUDED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.turbo',
+  '.vercel'
+]);
 
-/** The spec the audited operations come from. */
-export const OPENAPI_SPEC_PATH = path.join(
-  WEB_ROOT,
-  'app/api/openapi/openapi.generated.json'
-);
+const SPEC_FILE_RE = /^(?:openapi|swagger)[^/]*\.json$/i;
+const TEST_FILE_RE = /\.test\.(?:ts|tsx|js|jsx)$/;
+
+/** Recursively collect files matching `matches`, skipping EXCLUDED_DIRS */
+function walk(dir: string, matches: (name: string) => boolean): string[] {
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!EXCLUDED_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
+        found.push(...walk(path.join(dir, entry.name), matches));
+      }
+    } else if (matches(entry.name)) {
+      found.push(path.join(dir, entry.name));
+    }
+  }
+  return found;
+}
+
+/**
+ * Locate the OpenAPI spec in the target repo: SPECPROOF_SPEC (relative to the
+ * repo root, or absolute) wins; otherwise the shallowest `openapi*.json` /
+ * `swagger*.json` in the tree. Returns null when there is nothing to audit.
+ */
+export function resolveSpecPath(repoRoot: string = TARGET_REPO_ROOT): string | null {
+  if (process.env.SPECPROOF_SPEC) {
+    const explicit = path.resolve(repoRoot, process.env.SPECPROOF_SPEC);
+    return fs.existsSync(explicit) ? explicit : null;
+  }
+  if (!fs.existsSync(repoRoot)) return null;
+  const candidates = walk(repoRoot, (name) => SPEC_FILE_RE.test(name)).sort(
+    (a, b) =>
+      a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b)
+  );
+  return candidates[0] ?? null;
+}
 
 // ============================================================================
 // Types
@@ -67,9 +107,9 @@ export interface OperationCoverage {
   method: string;
   specPath: string;
   summary: string;
-  /** Path of the colocated test file relative to the OmniLens repo root, if one exists */
+  /** Path of the operation's test file relative to the target repo root, if one exists */
   testFile: string | null;
-  /** Number of it() blocks in this method's describe segments */
+  /** Number of it() blocks in this operation's describe segments */
   testCount: number;
   statuses: StatusCoverage[];
   /** Documented statuses with at least one assertion */
@@ -92,7 +132,7 @@ export interface CoverageReport {
   /** documented (path, method, status) pairs with assertions */
   coveredCount: number;
   totalCount: number;
-  /** operations whose route has no test file at all */
+  /** operations with no test evidence at all */
   untestedOperations: number;
 }
 
@@ -100,7 +140,9 @@ export interface CoverageReport {
 // Test-file parsing
 // ============================================================================
 
-interface MethodTestEvidence {
+interface OperationEvidence {
+  /** test file the evidence came from, relative to the repo root */
+  testFile: string;
   /** statuses asserted, with assertion counts */
   statuses: Map<string, number>;
   /** it() blocks per asserted status */
@@ -109,6 +151,26 @@ interface MethodTestEvidence {
 }
 
 const STATUS_ASSERT_RE = /\.status\)\.(?:toBe|toEqual)\(\s*(\d{3})\s*\)/g;
+
+/**
+ * Normalize a URL path for joining spec operations against describe titles:
+ * `{param}`, `[param]`, and `:param` segments are interchangeable, and a
+ * trailing slash is ignored.
+ */
+function normalizePath(urlPath: string): string {
+  return urlPath
+    .replace(/\/$/, '')
+    .split('/')
+    .map((part) =>
+      part.replace(/^\{(.+)\}$/, '{}').replace(/^\[(.+)\]$/, '{}').replace(/^:(.+)$/, '{}')
+    )
+    .join('/');
+}
+
+/** Join key for one operation: "get /api/repo/{}" */
+function operationKey(method: string, urlPath: string): string {
+  return `${method.toLowerCase()} ${normalizePath(urlPath)}`;
+}
 
 /** Strip the common leading indentation from an extracted block */
 function dedent(block: string): string {
@@ -122,7 +184,7 @@ function dedent(block: string): string {
 
 /**
  * Extract the it()/test() blocks from a describe segment. Blocks end at the
- * first `});` back at the block's own indentation — reliable for this repo's
+ * first `});` back at the block's own indentation — reliable for
  * prettier-consistent test files.
  */
 function extractItBlocks(
@@ -154,33 +216,35 @@ function extractItBlocks(
 }
 
 /**
- * Parse a route.test.ts source into per-method evidence. Test files follow the
- * `describe("METHOD /api/…", …)` convention; each describe segment is scanned
- * for `.status).toBe(NNN)` / `.status).toEqual(NNN)` assertions and it() blocks.
+ * Parse a test file's source into per-operation evidence, keyed by
+ * operationKey. The convention joined on is `describe("METHOD /path", …)` —
+ * each such segment is scanned for `.status).toBe(NNN)` /
+ * `.status).toEqual(NNN)` assertions and it() blocks. describe blocks whose
+ * title doesn't start with an HTTP method + path are ignored.
  */
-function parseTestFile(source: string): Map<string, MethodTestEvidence> {
-  const byMethod = new Map<string, MethodTestEvidence>();
+function parseTestFile(source: string, testFile: string): Map<string, OperationEvidence> {
+  const byOperation = new Map<string, OperationEvidence>();
   const describeRe = /describe\(\s*["'`]([^"'`]+)["'`]/g;
 
-  const segments: Array<{ method: string; start: number; end: number }> = [];
+  const segments: Array<{ key: string; start: number; end: number }> = [];
   let match: RegExpExecArray | null;
   while ((match = describeRe.exec(source)) !== null) {
     const title = match[1];
-    const methodMatch = title.match(/^(GET|POST|PUT|DELETE|PATCH)\b/);
+    const titleMatch = title.match(/^(GET|POST|PUT|DELETE|PATCH)\s+(\S+)/);
     if (segments.length > 0) segments[segments.length - 1].end = match.index;
     segments.push({
-      method: methodMatch ? methodMatch[1].toLowerCase() : '',
+      key: titleMatch ? operationKey(titleMatch[1], titleMatch[2]) : '',
       start: match.index,
       end: source.length
     });
   }
 
   for (const segment of segments) {
-    if (!segment.method) continue;
+    if (!segment.key) continue;
     const body = source.slice(segment.start, segment.end);
     const evidence =
-      byMethod.get(segment.method) ??
-      { statuses: new Map(), snippets: new Map(), testCount: 0 };
+      byOperation.get(segment.key) ??
+      { testFile, statuses: new Map(), snippets: new Map(), testCount: 0 };
 
     for (const statusMatch of body.matchAll(STATUS_ASSERT_RE)) {
       const code = statusMatch[1];
@@ -197,30 +261,49 @@ function parseTestFile(source: string): Map<string, MethodTestEvidence> {
       }
     }
 
-    byMethod.set(segment.method, evidence);
+    byOperation.set(segment.key, evidence);
   }
 
-  return byMethod;
+  return byOperation;
+}
+
+/**
+ * Scan the whole target repo for test files and index their evidence by
+ * operation. When several files describe the same operation, the one with the
+ * most it() blocks wins (ties broken alphabetically) — snippets must all cite
+ * a single file.
+ */
+function collectTestEvidence(repoRoot: string): Map<string, OperationEvidence> {
+  const best = new Map<string, OperationEvidence>();
+  const testFiles = walk(repoRoot, (name) => TEST_FILE_RE.test(name)).sort();
+
+  for (const testFileAbs of testFiles) {
+    const testFile = path.relative(repoRoot, testFileAbs).split(path.sep).join('/');
+    const parsed = parseTestFile(fs.readFileSync(testFileAbs, 'utf8'), testFile);
+    for (const [key, evidence] of parsed) {
+      const current = best.get(key);
+      if (!current || evidence.testCount > current.testCount) {
+        best.set(key, evidence);
+      }
+    }
+  }
+  return best;
 }
 
 // ============================================================================
 // Report assembly
 // ============================================================================
 
-/** Map an OpenAPI path back to its route directory: /api/repo/{slug} -> app/api/repo/[slug] */
-function specPathToRouteDir(specPath: string): string {
-  return path.join(
-    WEB_ROOT,
-    'app',
-    ...specPath
-      .replace(/^\//, '')
-      .split('/')
-      .map((part) => part.replace(/^\{(.+)\}$/, '[$1]'))
-  );
-}
-
 export function buildCoverageReport(): CoverageReport {
-  const spec = JSON.parse(fs.readFileSync(OPENAPI_SPEC_PATH, 'utf8')) as {
+  const specPath = resolveSpecPath();
+  if (!specPath) {
+    throw new Error(
+      `api-test-coverage: no OpenAPI spec found under ${TARGET_REPO_ROOT} — ` +
+        'set SPECPROOF_REPO to the repo to audit, or SPECPROOF_SPEC to the spec file'
+    );
+  }
+
+  const spec = JSON.parse(fs.readFileSync(specPath, 'utf8')) as {
     tags?: Array<{ name: string; description?: string }>;
     paths: Record<
       string,
@@ -228,20 +311,14 @@ export function buildCoverageReport(): CoverageReport {
     >;
   };
 
+  const evidenceByOperation = collectTestEvidence(TARGET_REPO_ROOT);
   const tagOrder = (spec.tags ?? []).map((t) => t.name);
   const tagDescriptions = new Map((spec.tags ?? []).map((t) => [t.name, t.description ?? '']));
   const byTag = new Map<string, OperationCoverage[]>();
 
-  for (const [specPath, methods] of Object.entries(spec.paths)) {
-    const routeDir = specPathToRouteDir(specPath);
-    const testFileAbs = path.join(routeDir, 'route.test.ts');
-    const hasTestFile = fs.existsSync(testFileAbs);
-    const evidence = hasTestFile
-      ? parseTestFile(fs.readFileSync(testFileAbs, 'utf8'))
-      : new Map<string, MethodTestEvidence>();
-
+  for (const [specPathKey, methods] of Object.entries(spec.paths ?? {})) {
     for (const [method, operation] of Object.entries(methods)) {
-      const methodEvidence = evidence.get(method);
+      const methodEvidence = evidenceByOperation.get(operationKey(method, specPathKey));
       const documented = Object.entries(operation.responses ?? {});
       const assertedCodes = methodEvidence?.statuses ?? new Map<string, number>();
 
@@ -271,11 +348,9 @@ export function buildCoverageReport(): CoverageReport {
 
       const op: OperationCoverage = {
         method,
-        specPath,
+        specPath: specPathKey,
         summary: operation.summary ?? '',
-        testFile: hasTestFile
-          ? path.relative(OMNILENS_ROOT, testFileAbs).split(path.sep).join('/')
-          : null,
+        testFile: methodEvidence?.testFile ?? null,
         testCount: methodEvidence?.testCount ?? 0,
         statuses,
         coveredCount,

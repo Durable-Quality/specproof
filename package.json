@@ -1,13 +1,22 @@
 {
-  "name": "test-ledger",
-  "private": true,
+  "name": "specproof",
+  "version": "0.1.0",
+  "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
-  "version": "1.0.0",
+  "repository": "github:Durable-Quality/specproof",
+  "homepage": "https://github.com/Durable-Quality/specproof",
+  "keywords": [
+    "openapi",
+    "swagger",
+    "test-coverage",
+    "api-testing",
+    "audit"
+  ],
   "type": "module",
   "scripts": {
-    "build": "bun run generate:ledger && bunx next build",
-    "dev": "bun run generate:ledger && bunx next dev --port 3001",
-    "generate:ledger": "bun scripts/generate-ledger.ts",
+    "build": "bun run generate:proof && bunx next build",
+    "dev": "bun run generate:proof && bunx next dev --port 3001",
+    "generate:proof": "bun scripts/generate-proof.ts",
     "lint": "bunx eslint . ; bunx tsc --noEmit",
     "lint:es": "bunx eslint .",
     "lint:ts": "bunx tsc --noEmit",
