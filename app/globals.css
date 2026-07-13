@@ -1,0 +1,31 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Same dark theme tokens as apps/web — the ledger renders on the shadcn
+   variable vocabulary (background/foreground/muted/border/…). */
+:root {
+  --background: 0 0% 0.4%;
+  --foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 0 0% 9%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 25%;
+  --muted-foreground: 0 0% 75%;
+  --accent: 0 0% 25%;
+  --accent-foreground: 0 0% 98%;
+  --border: 0 0% 20%;
+  --input: 0 0% 14.9%;
+  --ring: 0 0% 83.1%;
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}

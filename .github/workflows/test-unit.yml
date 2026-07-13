@@ -1,0 +1,40 @@
+name: 📒 Ledger Contract Tests
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+  workflow_dispatch:
+
+jobs:
+  test-unit:
+    name: 📒 Run ledger contract tests
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+
+      - name: 📥 Checkout OmniLens (audited sources)
+        uses: actions/checkout@v5
+        with:
+          repository: omnilens/OmniLens
+          path: OmniLens
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 🧰 Install dependencies
+        run: bun install
+
+      - name: 📒 Run contract tests
+        run: bun run test:unit
+        env:
+          NODE_ENV: test
+          OMNILENS_REPO: ${{ github.workspace }}/OmniLens
