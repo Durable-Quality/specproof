@@ -140,7 +140,7 @@ export interface CoverageReport {
 // Test-file parsing
 // ============================================================================
 
-interface OperationEvidence {
+export interface OperationEvidence {
   /** test file the evidence came from, relative to the repo root */
   testFile: string;
   /** statuses asserted, with assertion counts */
@@ -168,12 +168,12 @@ function normalizePath(urlPath: string): string {
 }
 
 /** Join key for one operation: "get /api/repo/{}" */
-function operationKey(method: string, urlPath: string): string {
+export function operationKey(method: string, urlPath: string): string {
   return `${method.toLowerCase()} ${normalizePath(urlPath)}`;
 }
 
 /** Strip the common leading indentation from an extracted block */
-function dedent(block: string): string {
+export function dedent(block: string): string {
   const lines = block.split('\n');
   const indents = lines
     .filter((line) => line.trim().length > 0)
@@ -187,7 +187,7 @@ function dedent(block: string): string {
  * first `});` back at the block's own indentation — reliable for
  * prettier-consistent test files.
  */
-function extractItBlocks(
+export function extractItBlocks(
   segment: string,
   segmentOffset: number,
   fullSource: string
@@ -222,7 +222,7 @@ function extractItBlocks(
  * `.status).toEqual(NNN)` assertions and it() blocks. describe blocks whose
  * title doesn't start with an HTTP method + path are ignored.
  */
-function parseTestFile(source: string, testFile: string): Map<string, OperationEvidence> {
+export function parseTestFile(source: string, testFile: string): Map<string, OperationEvidence> {
   const byOperation = new Map<string, OperationEvidence>();
   const describeRe = /describe\(\s*["'`]([^"'`]+)["'`]/g;
 
@@ -273,7 +273,7 @@ function parseTestFile(source: string, testFile: string): Map<string, OperationE
  * most it() blocks wins (ties broken alphabetically) — snippets must all cite
  * a single file.
  */
-function collectTestEvidence(repoRoot: string): Map<string, OperationEvidence> {
+export function collectTestEvidence(repoRoot: string): Map<string, OperationEvidence> {
   const best = new Map<string, OperationEvidence>();
   const testFiles = walk(repoRoot, (name) => TEST_FILE_RE.test(name)).sort();
 
@@ -294,11 +294,11 @@ function collectTestEvidence(repoRoot: string): Map<string, OperationEvidence> {
 // Report assembly
 // ============================================================================
 
-export function buildCoverageReport(): CoverageReport {
-  const specPath = resolveSpecPath();
+export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): CoverageReport {
+  const specPath = resolveSpecPath(repoRoot);
   if (!specPath) {
     throw new Error(
-      `api-test-coverage: no OpenAPI spec found under ${TARGET_REPO_ROOT} — ` +
+      `api-test-coverage: no OpenAPI spec found under ${repoRoot} — ` +
         'set SPECPROOF_REPO to the repo to audit, or SPECPROOF_SPEC to the spec file'
     );
   }
@@ -311,7 +311,7 @@ export function buildCoverageReport(): CoverageReport {
     >;
   };
 
-  const evidenceByOperation = collectTestEvidence(TARGET_REPO_ROOT);
+  const evidenceByOperation = collectTestEvidence(repoRoot);
   const tagOrder = (spec.tags ?? []).map((t) => t.name);
   const tagDescriptions = new Map((spec.tags ?? []).map((t) => [t.name, t.description ?? '']));
   const byTag = new Map<string, OperationCoverage[]>();

@@ -13,6 +13,9 @@ next-env.d.ts
 .DS_Store
 *.log
 
+# generated coverage audit report (glass skill)
+COVERAGE.md
+
 # env
 .env
 .env.*

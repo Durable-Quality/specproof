@@ -315,7 +315,7 @@ export function CoverageProof({
         {/* masthead */}
         <header className="sp-rise" style={{ '--sp-stagger': 0 } as React.CSSProperties}>
           <div className="flex flex-wrap items-end justify-between gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight">SpecProof</h1>
+            <h1 className="text-5xl font-semibold tracking-tight">SpecProof</h1>
             <div className="text-right">
               <div className="text-5xl font-semibold tabular-nums leading-none">
                 {Math.round((report.coveredCount / Math.max(report.totalCount, 1)) * 100)}

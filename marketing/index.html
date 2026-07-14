@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SpecProof — the receipt for your API coverage</title>
+<meta name="description" content="SpecProof audits any repo's OpenAPI spec against its own test suite and shows the exact test that proves — or fails to prove — each documented response status." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  /* ======================================================================
+     Same vocabulary as the app (app/proof.css + globals.css):
+     Geist Mono, hairlines at 9%/22% white, dotted leaders, punch-card
+     marks, outlined verdict stamps, 70ms-staggered rise.
+     ====================================================================== */
+  :root {
+    --bg: #010101;                      /* hsl(0 0% 0.4%) */
+    --ink: #e6e6e2;
+    --muted: rgba(230, 230, 226, 0.72);
+    --faint: rgba(255, 255, 255, 0.38);
+    --hair: rgba(255, 255, 255, 0.09);
+    --hair-strong: rgba(255, 255, 255, 0.22);
+
+    --get: #00e5a0;
+    --post: #4d9fff;
+    --put: #f59e0b;
+    --delete: #ef4444;
+
+    --ok: #00e5a0;
+    --gap: #ff5c5c;
+    --undoc: #f5a623;
+
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    isolation: isolate;
+    overflow-x: hidden;
+  }
+
+  /* faint top glow behind content — identical to .proof-page::before */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(120% 40% at 50% -5%, rgba(0, 229, 160, 0.055), transparent 60%);
+    pointer-events: none;
+  }
+
+  a { color: inherit; }
+  button { font-family: inherit; }
+
+  .wrap {
+    max-width: 896px; /* app: max-w-4xl */
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  /* micro-label: the app's tracking-[0.14em]/[0.18em] uppercase captions */
+  .micro {
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+
+  /* ---- entrance choreography (identical curve to .sp-rise) ------------- */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* Plays immediately (like the app's .sp-rise). With JS present, below-fold
+     elements are paused until the IntersectionObserver marks them .in — but a
+     missing/failed script can never leave the page blank. */
+  .rise {
+    opacity: 0;
+    animation: rise 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(var(--st, 0) * 70ms);
+  }
+  html.js .rise:not(.in) { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .rise { animation: none; opacity: 1; }
+  }
+
+  /* ---- shared proof primitives (verbatim from app/proof.css) ----------- */
+  .sp-rule-double { border-top: 3px double var(--hair-strong); }
+
+  .sp-leader {
+    flex: 1 1 2rem;
+    min-width: 2rem;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.18);
+    transform: translateY(-0.3em);
+  }
+
+  .sp-method {
+    --mc: var(--faint);
+    color: var(--mc);
+    border-left: 3px solid var(--mc);
+    padding-left: 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1.9;
+    text-transform: uppercase;
+    transition: border-left-width 150ms ease;
+  }
+  .sp-method[data-method="get"] { --mc: var(--get); }
+  .sp-method[data-method="post"] { --mc: var(--post); }
+  .sp-method[data-method="put"] { --mc: var(--put); }
+  .sp-method[data-method="delete"] { --mc: var(--delete); }
+
+  .sp-marks { display: inline-flex; gap: 3px; align-items: center; }
+  .sp-mark {
+    width: 7px;
+    height: 11px;
+    border: 1px solid var(--faint);
+    background: transparent;
+  }
+  .sp-mark[data-state="ok"] { background: var(--ok); border-color: var(--ok); }
+  .sp-mark[data-state="gap"] { border-color: var(--gap); border-style: dashed; }
+  .sp-mark[data-state="undoc"] {
+    border-color: var(--undoc);
+    background: repeating-linear-gradient(45deg, var(--undoc) 0 1px, transparent 1px 3px);
+  }
+
+  .sp-code[data-class="2"] { color: var(--ok); }
+  .sp-code[data-class="3"] { color: var(--post); }
+  .sp-code[data-class="4"] { color: var(--undoc); }
+  .sp-code[data-class="5"] { color: var(--gap); }
+
+  .sp-stamp {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    padding: 0.18rem 0.5rem;
+    white-space: nowrap;
+    background: transparent;
+  }
+  .sp-stamp[data-verdict="ok"] {
+    color: var(--ok);
+    border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+    background: color-mix(in srgb, var(--ok) 8%, transparent);
+  }
+  .sp-stamp[data-verdict="gap"] {
+    color: var(--gap);
+    border: 1px dashed color-mix(in srgb, var(--gap) 55%, transparent);
+  }
+  .sp-stamp[data-verdict="undoc"] {
+    color: var(--undoc);
+    border: 1px solid color-mix(in srgb, var(--undoc) 45%, transparent);
+    background: repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--undoc) 10%, transparent) 0 4px,
+      transparent 4px 8px
+    );
+  }
+  button.sp-stamp {
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  button.sp-stamp:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 14px -4px color-mix(in srgb, currentColor 55%, transparent);
+  }
+  button.sp-stamp:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
+  .sp-codeblock {
+    margin: 0;
+    border: 1px solid var(--hair);
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 0.72rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    padding: 0.5rem 0;
+    white-space: normal; /* markup newlines between codelines must not render */
+  }
+  .sp-codeline {
+    display: grid;
+    grid-template-columns: 3.2rem 1fr;
+    padding-right: 1rem;
+    white-space: pre;
+  }
+  .sp-codeline code { font-family: inherit; }
+  .sp-codeline[data-hit] {
+    background: color-mix(in srgb, var(--ok) 8%, transparent);
+    box-shadow: inset 2px 0 0 var(--ok);
+  }
+  .sp-lineno {
+    padding-right: 0.9rem;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.22);
+    user-select: none;
+  }
+  .sp-codeline[data-hit] .sp-lineno { color: var(--ok); }
+
+  /* ================================================================ nav */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom: 1px solid var(--hair);
+  }
+  .nav .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    height: 3.5rem;
+  }
+  .nav .brand {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-size: 0.95rem;
+    text-decoration: none;
+  }
+  .nav .links {
+    display: flex;
+    align-items: center;
+    gap: 1.6rem;
+  }
+  .nav .links a {
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    color: var(--faint);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+  .nav .links a:hover { color: var(--ink); }
+  .nav .links a.gh {
+    color: var(--ink);
+    border: 1px solid var(--hair-strong);
+    padding: 0.34rem 0.7rem;
+    transition: border-color 150ms ease, color 150ms ease;
+  }
+  .nav .links a.gh:hover { border-color: var(--ok); color: var(--ok); }
+  @media (max-width: 560px) {
+    .nav .links a:not(.gh) { display: none; }
+  }
+
+  /* =============================================================== hero */
+  .hero { padding: 5.5rem 0 4rem; }
+
+  .hero .kicker {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.6rem;
+  }
+  .hero .kicker .sp-marks { transform: translateY(1px); }
+
+  h1.headline {
+    font-size: clamp(1.85rem, 5vw, 2.9rem);
+    line-height: 1.16;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 1.4rem;
+    max-width: 21em;
+  }
+  h1.headline .muted { color: var(--faint); font-weight: 500; }
+  .stamp-word {
+    display: inline-block;
+    color: var(--ok);
+    border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+    background: color-mix(in srgb, var(--ok) 8%, transparent);
+    padding: 0.02em 0.22em;
+  }
+
+  .sub {
+    max-width: 42em;
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: var(--muted);
+    margin: 0 0 2.4rem;
+    font-weight: 400;
+  }
+  .sub em { font-style: normal; color: var(--ink); }
+
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.9rem;
+    margin-bottom: 3.2rem;
+  }
+  .copy-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    border: 1px solid var(--hair-strong);
+    padding: 0.65rem 1rem;
+    font-size: 0.76rem;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .copy-chip .prompt { color: var(--faint); user-select: none; }
+  .copy-chip button {
+    all: unset;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    color: var(--faint);
+    border-left: 1px solid var(--hair-strong);
+    padding-left: 0.8rem;
+    transition: color 150ms ease;
+  }
+  .copy-chip button:hover, .copy-chip button.copied { color: var(--ok); }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--hair-strong);
+    padding: 0.65rem 1.1rem;
+    font-size: 0.76rem;
+    text-decoration: none;
+    transition: border-color 150ms ease;
+  }
+  .btn-ghost:hover { border-color: var(--ink); }
+
+  /* facts strip — mirrors the app's summary <dl> under its double rule */
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.75rem 2.5rem;
+    margin: 0;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .facts .fact { display: flex; align-items: baseline; gap: 0.65rem; }
+  .facts dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .facts dt {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: var(--faint);
+  }
+
+  /* =========================================================== sections */
+  section { padding: 4.2rem 0; }
+  section + section { border-top: 1px solid var(--hair); }
+
+  /* numbered section head — same anatomy as the app's tag headers */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    border-bottom: 1px solid var(--hair-strong);
+    padding-bottom: 0.55rem;
+    margin-bottom: 2.2rem;
+  }
+  .section-head .no {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--faint);
+  }
+  .section-head h2 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .section-head .anno {
+    font-size: 0.72rem;
+    color: var(--faint);
+  }
+  @media (max-width: 560px) { .section-head .anno { display: none; } }
+
+  /* ============================================================ exhibit */
+  .frame {
+    border: 1px solid var(--hair-strong);
+    background: rgba(255, 255, 255, 0.012);
+  }
+  .frame-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 1.1rem;
+    border-bottom: 1px solid var(--hair);
+  }
+  .frame-bar .hint { color: var(--ok); }
+  .frame-body { padding: 1.6rem 1.4rem 1.8rem; }
+  @media (max-width: 560px) { .frame-body { padding: 1.2rem 0.85rem 1.4rem; } }
+
+  /* masthead replica */
+  .ex-mast {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.2rem;
+    margin-bottom: 1.6rem;
+  }
+  .ex-mast .name {
+    font-size: 1.9rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .ex-mast .pct {
+    font-size: 1.9rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-align: right;
+  }
+  .ex-mast .pct small { font-size: 1.05rem; font-weight: 400; color: var(--faint); }
+  .ex-mast .pct .micro { display: block; margin-top: 0.5rem; }
+
+  .ex-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.6rem 2rem;
+    border-bottom: 1px solid var(--hair);
+    padding: 0.7rem 0;
+    margin-bottom: 1rem;
+  }
+  .ex-summary .cell { display: flex; align-items: baseline; gap: 0.55rem; }
+  .ex-summary .v { font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .ex-summary .compiled { margin-left: auto; }
+  @media (max-width: 680px) { .ex-summary .compiled { margin-left: 0; } }
+
+  .ex-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .ex-legend span { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+  /* tag header replica */
+  .ex-tag-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    border-bottom: 1px solid var(--hair-strong);
+    padding-bottom: 0.5rem;
+  }
+  .ex-tag-head h3 {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ex-tag-head .desc { font-size: 0.72rem; color: var(--faint); }
+  .ex-tag-head .tally { font-size: 0.82rem; font-variant-numeric: tabular-nums; color: var(--faint); }
+  .ex-tag-head .tally b { color: var(--ink); font-weight: 500; }
+  @media (max-width: 560px) { .ex-tag-head .desc { display: none; } }
+
+  /* operation rows */
+  .oprow { border-bottom: 1px solid var(--hair); transition: background-color 180ms ease; }
+  .oprow:hover, .oprow[data-open] { background: rgba(255, 255, 255, 0.025); }
+  .oprow:hover .sp-method, .oprow[data-open] .sp-method { border-left-width: 6px; }
+
+  .optrigger {
+    all: unset;
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    width: 100%;
+    padding: 0.85rem 0.75rem;
+    cursor: pointer;
+  }
+  .optrigger:focus-visible { outline: 1px solid var(--hair-strong); outline-offset: -1px; }
+  .optrigger .sp-method { width: 4rem; flex-shrink: 0; }
+  .optrigger .path { font-size: 0.82rem; letter-spacing: -0.01em; }
+  .optrigger .path em { font-style: normal; color: var(--faint); }
+  .optrigger .tally {
+    width: 3rem;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--faint);
+  }
+  .optrigger .chev {
+    flex-shrink: 0;
+    color: var(--faint);
+    font-size: 0.7rem;
+    transition: transform 200ms ease;
+  }
+  .oprow[data-open] .chev { transform: rotate(180deg); }
+  @media (max-width: 560px) {
+    .optrigger .sp-leader { display: none; }
+    .optrigger { flex-wrap: wrap; }
+  }
+
+  .opbody { display: none; padding: 0 0.75rem 1.3rem; }
+  .oprow[data-open] .opbody { display: block; }
+  .opbody .inner { padding-left: calc(0.6rem + 3px); }
+  .opbody .op-summary { margin: 0 0 0.8rem; font-size: 0.75rem; color: var(--faint); }
+
+  .statusrow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.42rem 0;
+  }
+  .statusrow .sp-code { width: 2rem; flex-shrink: 0; font-size: 0.82rem; font-weight: 600; }
+  .statusrow .desc { font-size: 0.75rem; color: var(--faint); }
+  .statusrow .count { flex-shrink: 0; font-size: 0.68rem; color: var(--faint); }
+  @media (max-width: 560px) {
+    .statusrow { flex-wrap: wrap; }
+    .statusrow .sp-leader { display: none; }
+  }
+
+  .evidence { display: none; margin: 0.5rem 0 0.9rem; }
+  .evidence[data-open] { display: block; }
+  .evidence figure { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .evidence figcaption { display: flex; align-items: baseline; gap: 0.8rem; }
+  .evidence figcaption .t { font-size: 0.72rem; font-weight: 500; }
+  .evidence figcaption .ln { flex-shrink: 0; font-size: 0.65rem; color: var(--faint); }
+
+  .opfoot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--hair-strong);
+    font-size: 0.68rem;
+    color: var(--faint);
+  }
+  .opfoot .file { color: var(--muted); }
+
+  /* ============================================================= method */
+  .steps { display: flex; flex-direction: column; gap: 2.6rem; }
+  .step {
+    --sc: var(--faint);
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 640px) { .step { grid-template-columns: 1fr; gap: 0.7rem; } }
+  .step .label {
+    color: var(--sc);
+    border-left: 3px solid var(--sc);
+    padding-left: 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1.9;
+    align-self: start;
+  }
+  .step[data-accent="get"] { --sc: var(--get); }
+  .step[data-accent="post"] { --sc: var(--post); }
+  .step[data-accent="put"] { --sc: var(--put); }
+  .step h3 {
+    margin: 0 0 0.55rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .step p {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.75;
+    color: var(--muted);
+    max-width: 40em;
+  }
+  .step p + p { margin-top: 0.6rem; }
+  .step code {
+    font-family: inherit;
+    font-size: 0.92em;
+    color: var(--ink);
+    background: var(--hair);
+    padding: 0.06em 0.35em;
+  }
+
+  /* ========================================================== quickstart */
+  .code-shell {
+    border: 1px solid var(--hair-strong);
+    background: rgba(255, 255, 255, 0.015);
+  }
+  .code-shell .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--hair);
+  }
+  .code-shell .bar button {
+    all: unset;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    color: var(--faint);
+    transition: color 150ms ease;
+  }
+  .code-shell .bar button:hover, .code-shell .bar button.copied { color: var(--ok); }
+  .code-shell pre {
+    margin: 0;
+    padding: 1.1rem 1.2rem;
+    font-size: 0.8rem;
+    line-height: 2;
+    overflow-x: auto;
+  }
+  .code-shell .c1 { color: var(--faint); user-select: none; }
+  .code-shell .c2 { color: var(--ok); }
+  .code-shell .cm { color: var(--faint); }
+
+  .notes {
+    margin-top: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .notes p {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.75;
+    color: var(--faint);
+    display: flex;
+    gap: 0.7rem;
+  }
+  .notes p::before { content: "·"; color: var(--hair-strong); }
+  .notes code {
+    font-family: inherit;
+    color: var(--muted);
+    background: var(--hair);
+    padding: 0.06em 0.35em;
+  }
+  .notes a { color: var(--muted); }
+  .notes a:hover { color: var(--ok); }
+
+  /* ============================================================= footer */
+  footer { padding: 3.4rem 0 3rem; border-top: 1px solid var(--hair); }
+  .foot-stamp {
+    display: inline-block;
+    border: 2px solid var(--faint);
+    color: var(--faint);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    padding: 0.5rem 0.8rem;
+    margin-bottom: 1.6rem;
+  }
+  .foot-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.7rem;
+    color: var(--faint);
+  }
+  .foot-links a { text-decoration: none; transition: color 150ms ease; }
+  .foot-links a:hover { color: var(--ok); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="#">SpecProof</a>
+    <div class="links">
+      <a href="#exhibit">EXHIBIT</a>
+      <a href="#method">METHOD</a>
+      <a href="#quickstart">QUICKSTART</a>
+      <a class="gh" href="https://github.com/Durable-Quality/specproof">GITHUB&nbsp;↗</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker rise in" style="--st:0">
+      <span class="sp-marks" aria-hidden>
+        <span class="sp-mark" data-state="ok"></span>
+        <span class="sp-mark" data-state="ok"></span>
+        <span class="sp-mark" data-state="gap"></span>
+        <span class="sp-mark" data-state="undoc"></span>
+      </span>
+      <span class="micro">API test-coverage audit · OpenAPI × test suite</span>
+    </div>
+
+    <h1 class="headline rise in" style="--st:1">
+      Coverage percentages are a claim.<br>
+      <span class="muted">SpecProof is the</span> <span class="stamp-word">receipt.</span>
+    </h1>
+
+    <p class="sub rise in" style="--st:2">
+      SpecProof cross-examines any repo's OpenAPI spec against its own test suite and stamps a
+      verdict on every documented response status — <em>verified</em>, <em>no test</em>, or
+      <em>undocumented</em>. Click a verdict, read the exact test that proves it.
+    </p>
+
+    <div class="cta-row rise in" style="--st:3">
+      <div class="copy-chip">
+        <span class="prompt">$</span>
+        <span>git clone github:Durable-Quality/specproof</span>
+        <button data-copy="git clone https://github.com/Durable-Quality/specproof.git">COPY</button>
+      </div>
+      <a class="btn-ghost" href="#exhibit">Inspect the exhibit ↓</a>
+    </div>
+
+    <dl class="facts sp-rule-double rise in" style="--st:4">
+      <div class="fact">
+        <dd>0</dd>
+        <dt>REPO-SPECIFIC CONFIG</dt>
+      </div>
+      <div class="fact">
+        <dd>1</dd>
+        <dt>CHECKED-IN ARTIFACT</dt>
+      </div>
+      <div class="fact">
+        <dd>CI</dd>
+        <dt>FAILS WHEN THE PROOF GOES STALE</dt>
+      </div>
+    </dl>
+  </div>
+</header>
+
+<section id="exhibit">
+  <div class="wrap">
+    <div class="section-head rise">
+      <span class="no">01</span>
+      <h2>Exhibit</h2>
+      <span class="anno">the audit view, verbatim — expand an operation, click a verdict</span>
+      <span class="sp-leader" aria-hidden></span>
+      <span class="micro">LIVE</span>
+    </div>
+
+    <div class="frame rise">
+      <div class="frame-bar micro">
+        <span>RENDERED FROM app/proof.generated.json</span>
+        <span class="hint">INTERACTIVE</span>
+      </div>
+      <div class="frame-body">
+
+        <div class="ex-mast">
+          <span class="name">SpecProof</span>
+          <div class="pct">
+            90<small>%</small>
+            <span class="micro">DOCUMENTED RESPONSES VERIFIED</span>
+          </div>
+        </div>
+
+        <div class="ex-summary sp-rule-double">
+          <span class="cell"><span class="v">12</span><span class="micro">OPERATIONS</span></span>
+          <span class="cell"><span class="v">37/41</span><span class="micro">STATUS PAIRS VERIFIED</span></span>
+          <span class="cell"><span class="v">4</span><span class="micro">GAPS</span></span>
+          <span class="cell"><span class="v">1</span><span class="micro">UNTESTED ROUTES</span></span>
+          <span class="micro compiled">COMPILED 2026-07-13</span>
+        </div>
+
+        <div class="ex-legend micro">
+          <span><span class="sp-mark" data-state="ok"></span> VERIFIED</span>
+          <span><span class="sp-mark" data-state="gap"></span> NO TEST</span>
+          <span><span class="sp-mark" data-state="undoc"></span> UNDOCUMENTED</span>
+        </div>
+
+        <div class="ex-tag-head">
+          <span class="micro">01</span>
+          <h3>Orders</h3>
+          <span class="desc">Order lifecycle and fulfilment</span>
+          <span class="sp-leader" aria-hidden></span>
+          <span class="tally"><b>5</b>/6 verified</span>
+        </div>
+
+        <!-- GET /orders -->
+        <div class="oprow">
+          <button class="optrigger" type="button" aria-expanded="false">
+            <span class="sp-method" data-method="get">GET</span>
+            <span class="path">/orders</span>
+            <span class="sp-leader" aria-hidden></span>
+            <span class="sp-marks" aria-hidden>
+              <span class="sp-mark" data-state="ok"></span>
+              <span class="sp-mark" data-state="ok"></span>
+            </span>
+            <span class="tally">2/2</span>
+            <span class="chev" aria-hidden>▾</span>
+          </button>
+          <div class="opbody">
+            <div class="inner">
+              <p class="op-summary">List orders for the authenticated customer.</p>
+              <div class="statusrow">
+                <span class="sp-code" data-class="2">200</span>
+                <span class="desc">A page of orders.</span>
+                <span class="sp-leader" aria-hidden></span>
+                <span class="count">3 assertions</span>
+                <span class="sp-stamp" data-verdict="ok">VERIFIED</span>
+              </div>
+              <div class="statusrow">
+                <span class="sp-code" data-class="4">401</span>
+                <span class="desc">Missing or invalid credentials.</span>
+                <span class="sp-leader" aria-hidden></span>
+                <span class="count">1 assertion</span>
+                <span class="sp-stamp" data-verdict="ok">VERIFIED</span>
+              </div>
+              <div class="opfoot">
+                <span>5 tests in <span class="file">tests/orders/list.test.ts</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- POST /orders/{id}/cancel — open by default -->
+        <div class="oprow" data-open>
+          <button class="optrigger" type="button" aria-expanded="true">
+            <span class="sp-method" data-method="post">POST</span>
+            <span class="path">/orders/<em>{id}</em>/cancel</span>
+            <span class="sp-leader" aria-hidden></span>
+            <span class="sp-marks" aria-hidden>
+              <span class="sp-mark" data-state="ok"></span>
+              <span class="sp-mark" data-state="gap"></span>
+              <span class="sp-mark" data-state="undoc"></span>
+            </span>
+            <span class="tally">1/2</span>
+            <span class="chev" aria-hidden>▾</span>
+          </button>
+          <div class="opbody">
+            <div class="inner">
+              <p class="op-summary">Cancel an order that has not shipped yet.</p>
+
+              <div class="statusrow">
+                <span class="sp-code" data-class="2">200</span>
+                <span class="desc">Order cancelled.</span>
+                <span class="sp-leader" aria-hidden></span>
+                <span class="count">2 assertions</span>
+                <button class="sp-stamp" type="button" data-verdict="ok" data-evidence="ev-200" aria-expanded="true" title="Show the test code">VERIFIED ⌕</button>
+              </div>
+              <div class="evidence" id="ev-200" data-open>
+                <figure>
+                  <figcaption>
+                    <span class="t">cancels a pending order</span>
+                    <span class="sp-leader" aria-hidden></span>
+                    <span class="ln">L15</span>
+                  </figcaption>
+                  <pre class="sp-codeblock"><span class="sp-codeline"><span class="sp-lineno">15</span><code>it("cancels a pending order", async () =&gt; {</code></span>
+<span class="sp-codeline"><span class="sp-lineno">16</span><code>  const res = await request(app).post(`/orders/${order.id}/cancel`);</code></span>
+<span class="sp-codeline" data-hit><span class="sp-lineno">17</span><code>  expect(res.status).toBe(200);</code></span>
+<span class="sp-codeline"><span class="sp-lineno">18</span><code>  expect(res.body.status).toBe("cancelled");</code></span>
+<span class="sp-codeline"><span class="sp-lineno">19</span><code>});</code></span></pre>
+                </figure>
+              </div>
+
+              <div class="statusrow">
+                <span class="sp-code" data-class="4">409</span>
+                <span class="desc">Order already shipped.</span>
+                <span class="sp-leader" aria-hidden></span>
+                <span class="sp-stamp" data-verdict="gap">NO TEST</span>
+              </div>
+
+              <div class="statusrow">
+                <span class="sp-code" data-class="4">404</span>
+                <span class="desc">asserted in tests, but absent from the OpenAPI spec</span>
+                <span class="sp-leader" aria-hidden></span>
+                <button class="sp-stamp" type="button" data-verdict="undoc" data-evidence="ev-404" aria-expanded="false" title="Show the test code">UNDOCUMENTED ⌕</button>
+              </div>
+              <div class="evidence" id="ev-404">
+                <figure>
+                  <figcaption>
+                    <span class="t">returns 404 when the order does not exist</span>
+                    <span class="sp-leader" aria-hidden></span>
+                    <span class="ln">L22</span>
+                  </figcaption>
+                  <pre class="sp-codeblock"><span class="sp-codeline"><span class="sp-lineno">22</span><code>it("returns 404 when the order does not exist", async () =&gt; {</code></span>
+<span class="sp-codeline"><span class="sp-lineno">23</span><code>  const res = await request(app).post(`/orders/does-not-exist/cancel`);</code></span>
+<span class="sp-codeline" data-hit><span class="sp-lineno">24</span><code>  expect(res.status).toBe(404);</code></span>
+<span class="sp-codeline"><span class="sp-lineno">25</span><code>});</code></span></pre>
+                </figure>
+              </div>
+
+              <div class="opfoot">
+                <span>4 tests in <span class="file">tests/orders/cancel.test.ts</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DELETE /orders/{id} -->
+        <div class="oprow" style="border-bottom: none;">
+          <button class="optrigger" type="button" aria-expanded="false">
+            <span class="sp-method" data-method="delete">DELETE</span>
+            <span class="path">/orders/<em>{id}</em></span>
+            <span class="sp-leader" aria-hidden></span>
+            <span class="sp-marks" aria-hidden>
+              <span class="sp-mark" data-state="gap"></span>
+              <span class="sp-mark" data-state="gap"></span>
+            </span>
+            <span class="tally">0/2</span>
+            <span class="chev" aria-hidden>▾</span>
+          </button>
+          <div class="opbody">
+            <div class="inner">
+              <p class="op-summary">Delete a draft order.</p>
+              <div class="statusrow">
+                <span class="sp-code" data-class="2">204</span>
+                <span class="desc">Order deleted.</span>
+                <span class="sp-leader" aria-hidden></span>
+                <span class="sp-stamp" data-verdict="gap">NO TEST</span>
+              </div>
+              <div class="statusrow">
+                <span class="sp-code" data-class="4">404</span>
+                <span class="desc">No such order.</span>
+                <span class="sp-leader" aria-hidden></span>
+                <span class="sp-stamp" data-verdict="gap">NO TEST</span>
+              </div>
+              <div class="opfoot">
+                <span class="sp-stamp" data-verdict="gap">NO TEST FILE — THIS OPERATION SHIPS UNTESTED</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="wrap">
+    <div class="section-head rise">
+      <span class="no">02</span>
+      <h2>Method</h2>
+      <span class="anno">generate → checked-in artifact → contract test</span>
+      <span class="sp-leader" aria-hidden></span>
+    </div>
+
+    <div class="steps">
+      <div class="step rise" data-accent="get">
+        <span class="label">GENERATE</span>
+        <div>
+          <h3>Read both sources of truth.</h3>
+          <p>
+            The analyzer reads the target repo's OpenAPI spec — auto-discovered as the shallowest
+            <code>openapi*.json</code> / <code>swagger*.json</code>, or pinned with
+            <code>SPECPROOF_SPEC</code> — and every test suite titled
+            <code>describe("METHOD /path")</code>, matching
+            <code>.status).toBe(NNN)</code> assertions to documented responses.
+            <code>{param}</code>, <code>[param]</code>, and <code>:param</code> segments are
+            treated as equivalent.
+          </p>
+        </div>
+      </div>
+
+      <div class="step rise" data-accent="post">
+        <span class="label">COMMIT</span>
+        <div>
+          <h3>One deterministic, checked-in artifact.</h3>
+          <p>
+            The result is <code>app/proof.generated.json</code> — regenerated before every
+            <code>dev</code> and <code>build</code>, committed alongside your code. The app
+            renders only the artifact, so building and deploying the audit needs no target
+            checkout at all.
+          </p>
+        </div>
+      </div>
+
+      <div class="step rise" data-accent="put">
+        <span class="label">ENFORCE</span>
+        <div>
+          <h3>A contract test keeps the proof honest.</h3>
+          <p>
+            <code>app/proof-contract.test.ts</code> fails CI when the artifact is stale relative
+            to the spec or tests, when the audited operations drift from the spec's, or when a
+            quoted snippet no longer points at a real <code>it()</code> block. The proof cannot
+            silently rot.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="section-head rise">
+      <span class="no">03</span>
+      <h2>Quickstart</h2>
+      <span class="anno">requires bun</span>
+      <span class="sp-leader" aria-hidden></span>
+    </div>
+
+    <div class="code-shell rise">
+      <div class="bar">
+        <span class="micro">TERMINAL</span>
+        <button data-copy="git clone https://github.com/Durable-Quality/specproof.git specproof
+cd specproof && bun install
+SPECPROOF_REPO=/path/to/your-repo bun run dev">COPY</button>
+      </div>
+      <pre><span class="c1">$</span> git clone https://github.com/Durable-Quality/specproof.git specproof
+<span class="c1">$</span> cd specproof &amp;&amp; bun install
+<span class="c1">$</span> SPECPROOF_REPO=/path/to/your-repo bun run dev
+<span class="c2">→ compiles the proof, then serves it on http://localhost:3001</span></pre>
+    </div>
+
+    <div class="notes rise">
+      <p><span><code>SPECPROOF_REPO</code> defaults to the current working directory — run it from inside the target repo and it needs no configuration at all.</span></p>
+      <p><span>When the target's spec or tests change, <code>bun run generate:proof</code> refreshes the artifact; commit it and CI goes green again.</span></p>
+      <p><span>Conventions, commands, and the drift guard are documented in the <a href="https://github.com/Durable-Quality/specproof#readme">README</a>.</span></p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="foot-stamp">AUDITED · NOT ASSERTED</span>
+    <div class="foot-links">
+      <span>MIT licensed</span>
+      <a href="https://github.com/Durable-Quality/specproof">github.com/Durable-Quality/specproof</a>
+      <span>SpecProof</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // copy buttons
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'COPIED';
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.classList.remove('copied');
+        }, 1400);
+      });
+    });
+  });
+
+  // operation rows expand/collapse (mirrors the app's accordion)
+  document.querySelectorAll('.optrigger').forEach(function (trigger) {
+    trigger.addEventListener('click', function () {
+      var row = trigger.closest('.oprow');
+      var open = row.hasAttribute('data-open');
+      if (open) row.removeAttribute('data-open');
+      else row.setAttribute('data-open', '');
+      trigger.setAttribute('aria-expanded', String(!open));
+    });
+  });
+
+  // verdict stamps reveal the test evidence (mirrors the app's sheet)
+  document.querySelectorAll('button.sp-stamp[data-evidence]').forEach(function (stamp) {
+    stamp.addEventListener('click', function () {
+      var panel = document.getElementById(stamp.getAttribute('data-evidence'));
+      var open = panel.hasAttribute('data-open');
+      if (open) panel.removeAttribute('data-open');
+      else panel.setAttribute('data-open', '');
+      stamp.setAttribute('aria-expanded', String(!open));
+    });
+  });
+
+  // scroll-triggered rise, same curve and stagger as the app's sp-rise
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.rise').forEach(function (el) { io.observe(el); });
+</script>
+</body>
+</html>

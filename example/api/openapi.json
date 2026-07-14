@@ -1,0 +1,88 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TaskFlow API",
+    "version": "1.0.0",
+    "description": "Example API used to demo SpecProof and validate its analyzer. The spec and the tests in example/tests are deliberately out of step in places, so the audit shows every verdict state: proven coverage, gaps, untested operations, and an undocumented status."
+  },
+  "tags": [
+    { "name": "Auth", "description": "Session and token management" },
+    { "name": "Tasks", "description": "Create and manage tasks" },
+    { "name": "Projects", "description": "Group tasks into projects" }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Exchange credentials for a session token",
+        "tags": ["Auth"],
+        "responses": {
+          "200": { "description": "Session token issued" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "summary": "List tasks for the authenticated user",
+        "tags": ["Tasks"],
+        "responses": {
+          "200": { "description": "Task list" },
+          "401": { "description": "Missing or invalid bearer token" }
+        }
+      },
+      "post": {
+        "operationId": "createTask",
+        "summary": "Create a task",
+        "tags": ["Tasks"],
+        "responses": {
+          "201": { "description": "Task created" },
+          "400": { "description": "Malformed request body" },
+          "401": { "description": "Missing or invalid bearer token" }
+        }
+      }
+    },
+    "/tasks/{taskId}": {
+      "get": {
+        "operationId": "getTask",
+        "summary": "Fetch a single task",
+        "tags": ["Tasks"],
+        "responses": {
+          "200": { "description": "The task" },
+          "404": { "description": "No task with this id" }
+        }
+      },
+      "patch": {
+        "operationId": "updateTask",
+        "summary": "Update a task's fields",
+        "tags": ["Tasks"],
+        "responses": {
+          "200": { "description": "Updated task" },
+          "404": { "description": "No task with this id" },
+          "409": { "description": "Task was modified concurrently" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTask",
+        "summary": "Delete a task",
+        "tags": ["Tasks"],
+        "responses": {
+          "204": { "description": "Task deleted" },
+          "404": { "description": "No task with this id" }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "List projects",
+        "tags": ["Projects"],
+        "responses": {
+          "200": { "description": "Project list" },
+          "401": { "description": "Missing or invalid bearer token" }
+        }
+      }
+    }
+  }
+}
