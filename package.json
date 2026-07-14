@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
   "repository": "github:Durable-Quality/specproof",
