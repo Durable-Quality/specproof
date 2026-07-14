@@ -1,20 +1,21 @@
-name: 🧾 Proof Contract Tests
+name: CI
+
+# Runs on every PR and again inside the merge queue (merge_group) — the
+# Build / Lint / Test job names below are the required status checks the
+# queue waits for before merging into main.
 
 on:
-  push:
-    branches: main
   pull_request:
+    branches: main
+  merge_group:
+  push:
     branches: main
   workflow_dispatch:
 
 jobs:
-  test-unit:
-    name: 🧾 Run proof contract tests
+  build:
+    name: Build
     runs-on: ubuntu-latest
-
-    env:
-      NODE_ENV: test
-
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v5
@@ -27,10 +28,52 @@ jobs:
       - name: 🧰 Install dependencies
         run: bun install
 
-      # The contract tests self-skip when no audited repo is configured.
-      # To guard a specific target in CI, check it out here and set
-      # SPECPROOF_REPO (and optionally SPECPROOF_SPEC) on the test step.
-      - name: 🧾 Run contract tests
+      - name: 🏗️ Build
+        run: bun run build
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 🧰 Install dependencies
+        run: bun install
+
+      # Run the linters as separate steps (the `lint` script joins them with
+      # `;`, which would swallow an eslint failure in CI).
+      - name: 🧹 ESLint
+        run: bun run lint:es
+
+      - name: 🔎 Typecheck
+        run: bun run lint:ts
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 🧰 Install dependencies
+        run: bun install
+
+      # Unit tests for the analyzer + the proof contract tests. The contract
+      # tests audit the bundled example/ fixture; to guard a specific target
+      # in CI, check it out here and set SPECPROOF_REPO (and optionally
+      # SPECPROOF_SPEC) on this step.
+      - name: 🧾 Run unit & contract tests
         run: bun run test:unit
-        env:
-          NODE_ENV: test

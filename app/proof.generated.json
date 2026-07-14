@@ -1,7 +1,288 @@
 {
-  "tags": [],
-  "operationCount": 0,
-  "coveredCount": 0,
-  "totalCount": 0,
-  "untestedOperations": 0
+  "tags": [
+    {
+      "tag": "Auth",
+      "description": "Session and token management",
+      "operations": [
+        {
+          "method": "post",
+          "specPath": "/auth/login",
+          "summary": "Exchange credentials for a session token",
+          "testFile": "example/tests/auth.test.ts",
+          "testCount": 2,
+          "statuses": [
+            {
+              "code": "200",
+              "description": "Session token issued",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "returns a session token for valid credentials",
+                  "source": "it(\"returns a session token for valid credentials\", async () => {\n  const res = await api.post(\"/auth/login\", {\n    email: \"ada@example.com\",\n    password: \"correct horse battery staple\",\n  });\n\n  expect(res.status).toBe(200);\n  expect(res.body.token).toMatch(/^tk_/);\n});",
+                  "startLine": 6
+                }
+              ]
+            },
+            {
+              "code": "401",
+              "description": "Invalid credentials",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "rejects invalid credentials",
+                  "source": "it(\"rejects invalid credentials\", async () => {\n  const res = await api.post(\"/auth/login\", {\n    email: \"ada@example.com\",\n    password: \"not-the-password\",\n  });\n\n  expect(res.status).toBe(401);\n  expect(res.body.token).toBeUndefined();\n});",
+                  "startLine": 16
+                }
+              ]
+            }
+          ],
+          "coveredCount": 2,
+          "gapCount": 0
+        }
+      ],
+      "coveredCount": 2,
+      "totalCount": 2
+    },
+    {
+      "tag": "Tasks",
+      "description": "Create and manage tasks",
+      "operations": [
+        {
+          "method": "get",
+          "specPath": "/tasks",
+          "summary": "List tasks for the authenticated user",
+          "testFile": "example/tests/tasks.test.ts",
+          "testCount": 2,
+          "statuses": [
+            {
+              "code": "200",
+              "description": "Task list",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "lists tasks for the authenticated user",
+                  "source": "it(\"lists tasks for the authenticated user\", async () => {\n  const res = await api.get(\"/tasks\");\n\n  expect(res.status).toBe(200);\n  expect(Array.isArray(res.body.tasks)).toBe(true);\n});",
+                  "startLine": 14
+                }
+              ]
+            },
+            {
+              "code": "401",
+              "description": "Missing or invalid bearer token",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "rejects requests without a bearer token",
+                  "source": "it(\"rejects requests without a bearer token\", async () => {\n  const res = await api.get(\"/tasks\", { auth: false });\n\n  expect(res.status).toBe(401);\n});",
+                  "startLine": 21
+                }
+              ]
+            }
+          ],
+          "coveredCount": 2,
+          "gapCount": 0
+        },
+        {
+          "method": "post",
+          "specPath": "/tasks",
+          "summary": "Create a task",
+          "testFile": "example/tests/tasks.test.ts",
+          "testCount": 3,
+          "statuses": [
+            {
+              "code": "201",
+              "description": "Task created",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "creates a task and returns it",
+                  "source": "it(\"creates a task and returns it\", async () => {\n  const res = await api.post(\"/tasks\", {\n    title: \"Ship the Q3 roadmap\",\n    projectId: \"proj_1\",\n  });\n\n  expect(res.status).toBe(201);\n  expect(res.body.id).toBeDefined();\n  expect(res.body.title).toBe(\"Ship the Q3 roadmap\");\n});",
+                  "startLine": 29
+                }
+              ]
+            },
+            {
+              "code": "400",
+              "description": "Malformed request body",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "rejects a task without a title",
+                  "source": "it(\"rejects a task without a title\", async () => {\n  const res = await api.post(\"/tasks\", { projectId: \"proj_1\" });\n\n  expect(res.status).toBe(400);\n  expect(res.body.error).toBe(\"title is required\");\n});",
+                  "startLine": 40
+                }
+              ]
+            },
+            {
+              "code": "401",
+              "description": "Missing or invalid bearer token",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            },
+            {
+              "code": "422",
+              "description": "",
+              "documented": false,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "rejects a due date in the past",
+                  "source": "it(\"rejects a due date in the past\", async () => {\n  const res = await api.post(\"/tasks\", {\n    title: \"Time travel\",\n    dueDate: \"1999-12-31\",\n  });\n\n  expect(res.status).toBe(422);\n});",
+                  "startLine": 47
+                }
+              ]
+            }
+          ],
+          "coveredCount": 2,
+          "gapCount": 1
+        },
+        {
+          "method": "get",
+          "specPath": "/tasks/{taskId}",
+          "summary": "Fetch a single task",
+          "testFile": "example/tests/tasks.test.ts",
+          "testCount": 2,
+          "statuses": [
+            {
+              "code": "200",
+              "description": "The task",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "returns a task by id",
+                  "source": "it(\"returns a task by id\", async () => {\n  const created = await api.post(\"/tasks\", { title: \"Write release notes\" });\n  const res = await api.get(`/tasks/${created.body.id}`);\n\n  expect(res.status).toBe(200);\n  expect(res.body.id).toBe(created.body.id);\n});",
+                  "startLine": 58
+                }
+              ]
+            },
+            {
+              "code": "404",
+              "description": "No task with this id",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "returns 404 for an unknown task id",
+                  "source": "it(\"returns 404 for an unknown task id\", async () => {\n  const res = await api.get(\"/tasks/task_does_not_exist\");\n\n  expect(res.status).toBe(404);\n});",
+                  "startLine": 66
+                }
+              ]
+            }
+          ],
+          "coveredCount": 2,
+          "gapCount": 0
+        },
+        {
+          "method": "patch",
+          "specPath": "/tasks/{taskId}",
+          "summary": "Update a task's fields",
+          "testFile": "example/tests/tasks.test.ts",
+          "testCount": 1,
+          "statuses": [
+            {
+              "code": "200",
+              "description": "Updated task",
+              "documented": true,
+              "assertions": 1,
+              "snippets": [
+                {
+                  "title": "updates the fields of a task",
+                  "source": "it(\"updates the fields of a task\", async () => {\n  const created = await api.post(\"/tasks\", { title: \"Refine the backlog\" });\n  const res = await api.patch(`/tasks/${created.body.id}`, {\n    title: \"Refine and prioritize the backlog\",\n  });\n\n  expect(res.status).toBe(200);\n  expect(res.body.title).toBe(\"Refine and prioritize the backlog\");\n});",
+                  "startLine": 74
+                }
+              ]
+            },
+            {
+              "code": "404",
+              "description": "No task with this id",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            },
+            {
+              "code": "409",
+              "description": "Task was modified concurrently",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            }
+          ],
+          "coveredCount": 1,
+          "gapCount": 2
+        },
+        {
+          "method": "delete",
+          "specPath": "/tasks/{taskId}",
+          "summary": "Delete a task",
+          "testFile": null,
+          "testCount": 0,
+          "statuses": [
+            {
+              "code": "204",
+              "description": "Task deleted",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            },
+            {
+              "code": "404",
+              "description": "No task with this id",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            }
+          ],
+          "coveredCount": 0,
+          "gapCount": 2
+        }
+      ],
+      "coveredCount": 7,
+      "totalCount": 12
+    },
+    {
+      "tag": "Projects",
+      "description": "Group tasks into projects",
+      "operations": [
+        {
+          "method": "get",
+          "specPath": "/projects",
+          "summary": "List projects",
+          "testFile": null,
+          "testCount": 0,
+          "statuses": [
+            {
+              "code": "200",
+              "description": "Project list",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            },
+            {
+              "code": "401",
+              "description": "Missing or invalid bearer token",
+              "documented": true,
+              "assertions": 0,
+              "snippets": []
+            }
+          ],
+          "coveredCount": 0,
+          "gapCount": 2
+        }
+      ],
+      "coveredCount": 0,
+      "totalCount": 2
+    }
+  ],
+  "operationCount": 7,
+  "coveredCount": 9,
+  "totalCount": 16,
+  "untestedOperations": 2
 }

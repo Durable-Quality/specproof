@@ -1,9 +1,12 @@
 name: 🚀 Release
 
+# Publishes on push to main only. The main ruleset requires a PR + merge
+# queue (CI checks green) for every change, so this fires exactly once per
+# merged PR — never manually, never for unreviewed pushes.
+
 on:
   push:
     branches: main
-  workflow_dispatch:
 
 permissions:
   contents: read

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-07-14
+
+### Added
+- Bundled `example/` demo target: the fictional TaskFlow API (7 operations) plus fixture test files, audited automatically when no `SPECPROOF_REPO` is set — the app now renders a meaningful proof out of the box, demonstrating every verdict state.
+- Unit test suite for the coverage analyzer (`lib/api-test-coverage.test.ts`, 30 tests): path-param normalization, snippet extraction, test-file parsing, spec discovery, evidence merging, and report assembly with independently computed expectations.
+- CI workflow with separate `Build`, `Lint`, and `Test` jobs, running on pull requests and in the merge queue.
+- Merge queue ruleset on `main`: PRs required, all CI checks must pass, no direct pushes.
+- Marketing showcase page (`marketing/`) and brand assets (`public/`), with a banner in the README.
+
+### Changed
+- Releases now publish only after a PR merges to `main` through the merge queue; the manual release trigger was removed.
+- `buildCoverageReport()` accepts an optional target repo root, and the analyzer's parsing internals are exported for testing.
+- Larger SpecProof masthead in the coverage view.
+
 ## [0.1.0] - 2026-07-13
 
 ### Added

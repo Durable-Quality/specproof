@@ -13,6 +13,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["**/*.test.ts"],
-    exclude: ["node_modules/**", ".next/**"],
+    // example/ holds fixture tests for the analyzer to parse — never run them
+    exclude: ["node_modules/**", ".next/**", "example/**"],
   },
 });

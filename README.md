@@ -1,3 +1,5 @@
+<img src="public/banner.png" alt="SpecProof" />
+
 # SpecProof
 
 A standalone Next.js app that renders an audit view of any repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions. Click a stamped verdict to read the test itself.
