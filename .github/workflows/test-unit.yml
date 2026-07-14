@@ -1,9 +1,5 @@
 name: CI
 
-# Runs on every PR and again inside the merge queue (merge_group) — the
-# Build / Lint / Test job names below are the required status checks the
-# queue waits for before merging into main.
-
 on:
   pull_request:
     branches: main
@@ -46,8 +42,6 @@ jobs:
       - name: 🧰 Install dependencies
         run: bun install
 
-      # Run the linters as separate steps (the `lint` script joins them with
-      # `;`, which would swallow an eslint failure in CI).
       - name: 🧹 ESLint
         run: bun run lint:es
 
@@ -71,9 +65,5 @@ jobs:
       - name: 🧰 Install dependencies
         run: bun install
 
-      # Unit tests for the analyzer + the proof contract tests. The contract
-      # tests audit the bundled example/ fixture; to guard a specific target
-      # in CI, check it out here and set SPECPROOF_REPO (and optionally
-      # SPECPROOF_SPEC) on this step.
       - name: 🧾 Run unit & contract tests
         run: bun run test:unit
