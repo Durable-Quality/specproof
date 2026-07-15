@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-15
+
+### Added
+- `specproof` CLI with `generate`, `dev`, `build`, and `start` commands, so the package is fully usable when installed into a target repo (`bun add -d specproof && bunx specproof dev`), with `--repo`, `--spec`, and `--port` options.
+- `--out <path>` option (env `SPECPROOF_OUT`) on `generate` to write the proof anywhere, such as committed inside the audited repo.
+- `--check` option on `generate`: verifies the proof at the output path is up to date and exits 1 on drift, for use as a CI guard.
+- The generator writes an empty proof when no spec is found and no artifact exists yet, so a fresh install builds and renders the empty state.
+
+### Changed
+- The npm package now ships only what consumers need (analyzer, CLI, report app, configs): 17 files at about 18 kB, down from 36 files at 1.5 MB; brand images, the TaskFlow example and its demo proof, internal test suites, CI workflows, and internal docs are no longer published.
+- Build toolchain packages (typescript, tailwindcss, postcss, postcss-import, autoprefixer, type stubs) moved from devDependencies to dependencies, and the app opts into `transpilePackages`, so the report app builds from source under `node_modules`.
+- README rewritten to be shorter and consumer-focused: quick start, CLI reference, and CI drift guard.
+- The report's empty-state hint now shows installed CLI commands instead of repo-checkout commands.
+- Compressed `icon.png` from 369 kB to 24 kB and removed the unused banner and logo images; the README loads the icon from the repo instead of the package.
+
 ## [0.2.1] - 2026-07-14
 
 ### Changed

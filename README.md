@@ -1,53 +1,61 @@
-<img src="public/banner.png" alt="SpecProof" />
+<img src="https://raw.githubusercontent.com/Durable-Quality/specproof/main/public/icon.png" alt="SpecProof" width="120" />
 
 # SpecProof
 
-A standalone Next.js app that renders an audit view of any repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions. Click a stamped verdict to read the test itself.
+Audit your API test coverage against your OpenAPI spec. SpecProof cross-examines every operation and response status in the spec against your test suite's assertions and renders the verdicts as a browsable report. Click any verdict to read the test that proves it, or see exactly what's untested.
 
-Point it at a repo the same way OpenAPI tooling works when installed into one — no repo-specific configuration is baked in:
-
-- **Sources of truth** (read from the target repo, `SPECPROOF_REPO`): the OpenAPI spec (auto-discovered `openapi*.json` / `swagger*.json`, or set `SPECPROOF_SPEC`) + the repo's `*.test.ts` files, parsed from `describe("METHOD /path")` blocks and `.status).toBe(NNN)` assertions. `{param}`, `[param]`, and `:param` path segments are treated as equivalent when matching.
-- **Generator**: `scripts/generate-proof.ts` compiles them into `app/proof.generated.json` — checked in, deterministic, regenerated automatically before `dev`/`build`.
-- **Consumer**: the app renders the checked-in artifact; no target checkout is needed to build or deploy.
-- **Drift guard**: `app/proof-contract.test.ts` fails CI when the artifact is stale relative to the spec/tests, when the proof doesn't cover exactly the spec's operations, or when a quoted snippet no longer points at a real `it()` block. It self-skips when no target repo is configured.
-
-## Setup
+## Quick start
 
 Requires [Bun](https://bun.sh).
 
 ```bash
-bun install
-SPECPROOF_REPO=/path/to/your-repo bun run dev   # compiles the proof, then serves on http://localhost:3001
+bun add -d specproof     # or npm install -D specproof
+bunx specproof dev       # audit the current repo → http://localhost:3001
 ```
 
-`SPECPROOF_REPO` defaults to the current working directory, so running the generator from inside the target repo needs no configuration at all. If the spec isn't named `openapi*.json` / `swagger*.json`, point `SPECPROOF_SPEC` at it (relative to the repo root).
+The OpenAPI spec is auto-discovered (`openapi*.json` / `swagger*.json`); tests are your `*.test.ts` / `*.test.tsx` / `*.test.js` files.
 
-## Commands
+## CLI
 
 ```bash
-bun run dev             # generate:proof + next dev (port 3001)
-bun run build           # generate:proof + next build
-bun run start           # serve the production build (port 3001)
-bun run generate:proof  # regenerate app/proof.generated.json only
-bun run test:unit       # contract tests (self-skip without a configured target repo)
-bun run lint            # ESLint + tsc
+specproof generate [--out proof.json] [--check]   # compile the coverage proof
+specproof dev                                     # generate + serve the report
+specproof build && specproof start                # production build + serve
 ```
 
-## Updating the proof
+| Option | Env var | Meaning |
+| --- | --- | --- |
+| `--repo <path>` | `SPECPROOF_REPO` | Repo to audit (default: current directory) |
+| `--spec <path>` | `SPECPROOF_SPEC` | Spec file, relative to the repo root, when auto-discovery doesn't apply |
+| `--out <path>` | `SPECPROOF_OUT` | Where `generate` writes the proof |
+| `--port <port>` | | Port for `dev` / `start` (default: 3001) |
 
-When the target repo's tests or OpenAPI spec change, the checked-in artifact goes stale and the contract tests fail. The fix:
+## Drift guard in CI
+
+Commit the proof next to your code, then have CI fail whenever the spec or tests change without regenerating it:
 
 ```bash
-SPECPROOF_REPO=/path/to/your-repo bun run generate:proof
-git add app/proof.generated.json && git commit
+specproof generate --out specproof.json           # regenerate + commit
+specproof generate --out specproof.json --check   # CI: exits 1 when stale
 ```
 
 ## Conventions the parser relies on
 
-- Test suites titled `describe("METHOD /path")` (`GET|POST|PUT|DELETE|PATCH`) — the path is matched against the spec's paths.
+- Test suites titled `describe("METHOD /path")` (`GET|POST|PUT|DELETE|PATCH`). The path is matched against the spec's paths; `{param}`, `[param]`, and `:param` segments are equivalent.
 - Status assertions written as `.status).toBe(NNN)` or `.status).toEqual(NNN)`.
 - Prettier-consistent formatting: `it()`/`test()` blocks are extracted by indentation, not a full parser.
 
-## Releasing
+## Development
 
-Merges to `main` run the [Release workflow](.github/workflows/release.yml), which publishes the package to npm whenever `package.json`'s version isn't on the registry yet (requires the `NPM_TOKEN` repository secret).
+```bash
+bun install
+bun run dev         # audits the bundled example/ fixture on port 3001
+bun run test:unit   # analyzer unit tests + proof drift guards
+bun run lint        # ESLint + tsc
+```
+
+Point a checkout at a real repo with `SPECPROOF_REPO=/path/to/repo bun run dev`. See [CLAUDE.md](CLAUDE.md) for architecture notes.
+
+## License
+
+MIT

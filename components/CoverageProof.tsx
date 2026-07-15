@@ -370,8 +370,8 @@ export function CoverageProof({
           >
             <p className="text-sm font-semibold tracking-[0.14em]">NO API DEFINITION PROVIDED</p>
             <div className="mt-4 flex flex-col gap-1 text-xs text-muted-foreground">
-              <code className="text-foreground/70">SPECPROOF_REPO=/path/to/repo</code>
-              <code className="text-foreground/70">bun run generate:proof</code>
+              <code className="text-foreground/70">specproof dev --repo /path/to/repo</code>
+              <code className="text-foreground/70">specproof generate --spec path/to/openapi.json</code>
             </div>
           </section>
         ) : (
