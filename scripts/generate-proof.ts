@@ -18,6 +18,7 @@ import { fileURLToPath } from 'url';
 
 import {
   buildCoverageReport,
+  resolveRepoName,
   resolveSpecPath,
   TARGET_REPO_ROOT,
   type CoverageReport,
@@ -83,6 +84,7 @@ export function runGenerate(options: GenerateOptions = {}): number {
       // no proof at all. Write an empty one: the app needs the file to build,
       // and an empty report renders the "no API definition" state.
       const empty: CoverageReport = {
+        repoName: resolveRepoName(TARGET_REPO_ROOT),
         tags: [],
         operationCount: 0,
         coveredCount: 0,

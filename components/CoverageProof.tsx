@@ -228,8 +228,7 @@ function OperationRow({
           {operation.method}
         </span>
         <PathInk specPath={operation.specPath} />
-        <span className="sp-leader hidden sm:block" aria-hidden />
-        <span className="sp-marks shrink-0" aria-hidden>
+        <span className="sp-marks ml-auto shrink-0" aria-hidden>
           {operation.statuses.map((status) => (
             <span key={status.code} className="sp-mark" data-state={verdictOf(status)} />
           ))}
@@ -264,28 +263,33 @@ function TagSection({
   onShowEvidence: (evidence: Evidence) => void;
 }) {
   return (
-    <section className="sp-rise" style={{ '--sp-stagger': index + 3 } as React.CSSProperties}>
-      <header className="mb-1 flex items-baseline gap-4 border-b pb-2">
+    <AccordionItem
+      value={tag.tag}
+      className="sp-rise border-b-0"
+      style={{ '--sp-stagger': index + 3 } as React.CSSProperties}
+    >
+      <AccordionTrigger className="items-baseline gap-4 border-b py-0 pb-2 hover:no-underline">
         <span className="text-[0.65rem] tracking-[0.2em] text-muted-foreground">
           {String(index + 1).padStart(2, '0')}
         </span>
-        <h2 className="text-sm font-semibold uppercase tracking-[0.08em]">{tag.tag}</h2>
+        <span className="text-sm font-semibold uppercase tracking-[0.08em]">{tag.tag}</span>
         <span className="hidden text-xs text-muted-foreground sm:block">{tag.description}</span>
-        <span className="sp-leader" aria-hidden />
-        <span className="text-sm tabular-nums text-muted-foreground">
+        <span className="ml-auto text-sm font-normal tabular-nums text-muted-foreground">
           <span className="text-foreground">{tag.coveredCount}</span>/{tag.totalCount} verified
         </span>
-      </header>
-      <Accordion type="multiple" className="divide-y divide-[var(--sp-hair)]">
-        {tag.operations.map((operation) => (
-          <OperationRow
-            key={`${operation.method} ${operation.specPath}`}
-            operation={operation}
-            onShowEvidence={onShowEvidence}
-          />
-        ))}
-      </Accordion>
-    </section>
+      </AccordionTrigger>
+      <AccordionContent className="pb-0 pt-1">
+        <Accordion type="multiple" className="divide-y divide-[var(--sp-hair)]">
+          {tag.operations.map((operation) => (
+            <OperationRow
+              key={`${operation.method} ${operation.specPath}`}
+              operation={operation}
+              onShowEvidence={onShowEvidence}
+            />
+          ))}
+        </Accordion>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -302,6 +306,7 @@ export function CoverageProof({
 }) {
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const gapCount = report.totalCount - report.coveredCount;
+  const verifiedPct = Math.round((report.coveredCount / Math.max(report.totalCount, 1)) * 100);
   const facts: Array<[string, string]> = [
     ['operations', String(report.operationCount)],
     ['status pairs verified', `${report.coveredCount}/${report.totalCount}`],
@@ -311,56 +316,43 @@ export function CoverageProof({
 
   return (
     <div className="proof-root proof-page min-h-screen">
-      <div className="mx-auto flex max-w-4xl flex-col gap-14 px-6 py-16">
+      <div className="mx-auto flex max-w-5xl flex-col gap-14 px-6 py-16">
         {/* masthead */}
-        <header className="sp-rise" style={{ '--sp-stagger': 0 } as React.CSSProperties}>
-          <div className="flex flex-wrap items-end justify-between gap-6">
+        <header
+          className="sp-rise flex flex-col gap-8"
+          style={{ '--sp-stagger': 0 } as React.CSSProperties}
+        >
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <h1 className="text-5xl font-semibold tracking-tight">SpecProof</h1>
             <div className="text-right">
-              <div className="text-5xl font-semibold tabular-nums leading-none">
-                {Math.round((report.coveredCount / Math.max(report.totalCount, 1)) * 100)}
-                <span className="text-2xl font-normal text-muted-foreground">%</span>
-              </div>
-              <div className="mt-2 text-[0.65rem] tracking-[0.14em] text-muted-foreground">
-                DOCUMENTED RESPONSES VERIFIED
+              <div className="text-2xl font-semibold tracking-tight">{report.repoName}</div>
+              <div className="mt-2 text-[0.65rem] tracking-[0.18em] tabular-nums text-muted-foreground">
+                {new Date(compiledAt).toISOString().slice(0, 16).replace('T', ' ')} UTC
               </div>
             </div>
           </div>
-        </header>
 
-        {/* summary strip */}
-        <dl
-          className="sp-rise sp-rule-double flex flex-wrap items-baseline gap-x-10 gap-y-3 border-b py-3"
-          style={{ '--sp-stagger': 1 } as React.CSSProperties}
-        >
-          {facts.map(([label, value]) => (
-            <div key={label} className="flex items-baseline gap-2.5">
-              <dd className="text-xl tabular-nums">{value}</dd>
+          {/* report metadata */}
+          <dl className="sp-rule-double flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b py-4">
+            {facts.map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[0.65rem] tracking-[0.18em] text-muted-foreground">
+                  {label.toUpperCase()}
+                </dt>
+                <dd className="mt-2 text-2xl font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+            <div className="text-right">
               <dt className="text-[0.65rem] tracking-[0.18em] text-muted-foreground">
-                {label.toUpperCase()}
+                RESPONSES VERIFIED
               </dt>
+              <dd className="mt-2 text-2xl font-semibold tabular-nums">
+                {verifiedPct}
+                <span className="text-base font-normal text-muted-foreground">%</span>
+              </dd>
             </div>
-          ))}
-          <div className="ml-auto text-[0.65rem] tracking-[0.18em] text-muted-foreground">
-            COMPILED {new Date(compiledAt).toISOString().slice(0, 10)}
-          </div>
-        </dl>
-
-        {/* legend */}
-        <div
-          className="sp-rise -mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-[0.65rem] tracking-[0.14em] text-muted-foreground"
-          style={{ '--sp-stagger': 2 } as React.CSSProperties}
-        >
-          <span className="flex items-center gap-2">
-            <span className="sp-mark" data-state="ok" /> VERIFIED
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="sp-mark" data-state="gap" /> NO TEST
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="sp-mark" data-state="undoc" /> UNDOCUMENTED
-          </span>
-        </div>
+          </dl>
+        </header>
 
         {/* tag sections */}
         {report.operationCount === 0 ? (
@@ -375,9 +367,15 @@ export function CoverageProof({
             </div>
           </section>
         ) : (
-          report.tags.map((tag, i) => (
-            <TagSection key={tag.tag} tag={tag} index={i} onShowEvidence={setEvidence} />
-          ))
+          <Accordion
+            type="multiple"
+            defaultValue={report.tags.map((tag) => tag.tag)}
+            className="flex flex-col gap-14"
+          >
+            {report.tags.map((tag, i) => (
+              <TagSection key={tag.tag} tag={tag} index={i} onShowEvidence={setEvidence} />
+            ))}
+          </Accordion>
         )}
       </div>
 

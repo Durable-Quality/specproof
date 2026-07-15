@@ -127,6 +127,8 @@ export interface TagCoverage {
 }
 
 export interface CoverageReport {
+  /** Display name of the audited repo (its package.json "name", falling back to the directory name) */
+  repoName: string;
   tags: TagCoverage[];
   operationCount: number;
   /** documented (path, method, status) pairs with assertions */
@@ -134,6 +136,19 @@ export interface CoverageReport {
   totalCount: number;
   /** operations with no test evidence at all */
   untestedOperations: number;
+}
+
+/** The audited repo's display name: its package.json "name", falling back to the directory name. */
+export function resolveRepoName(repoRoot: string): string {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
+      name?: string;
+    };
+    if (pkg.name) return pkg.name;
+  } catch {
+    // no readable package.json — fall through to the directory name
+  }
+  return path.basename(repoRoot);
 }
 
 // ============================================================================
@@ -378,6 +393,7 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
 
   const operations = tags.flatMap((t) => t.operations);
   return {
+    repoName: resolveRepoName(repoRoot),
     tags,
     operationCount: operations.length,
     coveredCount: tags.reduce((n, t) => n + t.coveredCount, 0),

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-15
+
+### Added
+- The coverage report now records the audited repo's name (its package.json `name`, falling back to the directory name) and displays it in the report masthead.
+
+### Changed
+- Report header redesigned: the summary facts are now a labeled metadata strip with the verified percentage as one of the stats, and the compile timestamp (with time, in UTC) sits under the repo name.
+- Tag sections are now collapsible accordions, open by default, with the per-tag verified count in the trigger row.
+- Removed the standalone verdict legend row and the dot-leader fillers; status marks are right-aligned instead.
+
 ## [0.3.0] - 2026-07-15
 
 ### Added
