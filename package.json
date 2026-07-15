@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
   "repository": "github:Durable-Quality/specproof",
@@ -13,6 +13,22 @@
     "audit"
   ],
   "type": "module",
+  "bin": {
+    "specproof": "scripts/cli.ts"
+  },
+  "files": [
+    "app",
+    "components",
+    "lib",
+    "scripts",
+    "!app/proof-contract.test.ts",
+    "!app/proof.generated.json",
+    "!lib/api-test-coverage.test.ts",
+    "next.config.js",
+    "postcss.config.js",
+    "tailwind.config.ts",
+    "tsconfig.json"
+  ],
   "scripts": {
     "build": "bun run generate:proof && bunx next build",
     "dev": "bun run generate:proof && bunx next dev --port 3001",
@@ -28,29 +44,29 @@
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.16",
     "@radix-ui/react-dialog": "^1.1.15",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.562.0",
-    "next": "^16.0.7",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.1",
     "@types/node": "24.1.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "autoprefixer": "^10.4.22",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.562.0",
+    "next": "^16.0.7",
+    "postcss": "^8.5.6",
+    "postcss-import": "^16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^3.4.18",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
-    "postcss": "^8.5.6",
-    "postcss-import": "^16.1.1",
-    "tailwindcss": "^3.4.18",
-    "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
     "vitest": "^4.1.8"
   }
