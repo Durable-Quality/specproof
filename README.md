@@ -6,12 +6,12 @@ Audit your API test coverage against your OpenAPI spec. SpecProof cross-examines
 
 ## Quick start
 
-Requires [Bun](https://bun.sh).
-
 ```bash
-bun add -d specproof     # or npm install -D specproof
-bunx specproof dev       # audit the current repo → http://localhost:3001
+npm install -D specproof
+npx specproof dev   # audit the current repo → http://localhost:3001
 ```
+
+Works with any package manager: `bun add -d specproof && bunx specproof dev`, `pnpm add -D specproof && pnpm exec specproof dev`, or the `yarn add -D` equivalent.
 
 The OpenAPI spec is auto-discovered (`openapi*.json` / `swagger*.json`); tests are your `*.test.ts` / `*.test.tsx` / `*.test.js` files.
 
@@ -46,6 +46,8 @@ specproof generate --out specproof.json --check   # CI: exits 1 when stale
 - Prettier-consistent formatting: `it()`/`test()` blocks are extracted by indentation, not a full parser.
 
 ## Development
+
+Contributing to this repo (not required to use the published CLI above) uses [Bun](https://bun.sh):
 
 ```bash
 bun install

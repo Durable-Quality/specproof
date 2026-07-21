@@ -4,7 +4,8 @@
 // SPECPROOF_SPEC).
 //
 // Run via `bun run generate:proof` (also runs automatically before
-// `bun run dev` / `bun run build`), or `specproof generate` when installed.
+// `bun run dev` / `bun run build`) during development of this repo, or
+// `specproof generate` when installed as a dependency elsewhere.
 // The output defaults to the checked-in artifact at app/proof.generated.json;
 // override with --out / SPECPROOF_OUT to write the proof into the audited
 // repo instead (e.g. to commit it there). --check verifies the output file is
@@ -22,7 +23,7 @@ import {
   resolveSpecPath,
   TARGET_REPO_ROOT,
   type CoverageReport,
-} from '../lib/api-test-coverage';
+} from '../lib/api-test-coverage.js';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 

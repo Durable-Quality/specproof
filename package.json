@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
   "repository": "github:Durable-Quality/specproof",
@@ -14,16 +14,14 @@
   ],
   "type": "module",
   "bin": {
-    "specproof": "scripts/cli.ts"
+    "specproof": "dist/scripts/cli.js"
   },
   "files": [
     "app",
     "components",
-    "lib",
-    "scripts",
+    "dist",
     "!app/proof-contract.test.ts",
     "!app/proof.generated.json",
-    "!lib/api-test-coverage.test.ts",
     "next.config.js",
     "postcss.config.js",
     "tailwind.config.ts",
@@ -31,11 +29,13 @@
   ],
   "scripts": {
     "build": "bun run generate:proof && bunx next build",
+    "build:cli": "tsc -p tsconfig.cli.json",
     "dev": "bun run generate:proof && bunx next dev --port 3001",
     "generate:proof": "bun scripts/generate-proof.ts",
     "lint": "bunx eslint . ; bunx tsc --noEmit",
     "lint:es": "bunx eslint .",
     "lint:ts": "bunx tsc --noEmit",
+    "prepublishOnly": "npm run build:cli",
     "start": "bunx next start --port 3001",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest"
