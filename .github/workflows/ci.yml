@@ -161,3 +161,136 @@ jobs:
           esac
           test -s ./proof.json
           node -e "const d=require('./proof.json'); if (!d.operationCount) { console.error('no operations found in proof.json'); process.exit(1); }"
+
+      - name: ✅ `--check` passes on a freshly generated proof
+        working-directory: /tmp/consumer
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json --check ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json --check ;;
+            yarn) yarn specproof generate --out ./proof.json --check ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
+          esac
+
+      - name: 🧬 Introduce drift in the consumer's OpenAPI spec
+        working-directory: /tmp/consumer
+        run: |
+          node -e "
+            const fs = require('fs');
+            const spec = JSON.parse(fs.readFileSync('./api/openapi.json', 'utf8'));
+            spec.paths['/ci-drift-check'] = {
+              get: {
+                operationId: 'ciDriftCheckProbe',
+                summary: 'Injected by CI to verify specproof generate --check catches drift',
+                responses: { '200': { description: 'OK' } }
+              }
+            };
+            fs.writeFileSync('./api/openapi.json', JSON.stringify(spec, null, 2) + '\n');
+          "
+
+      - name: 🚫 `--check` fails on a stale proof
+        working-directory: /tmp/consumer
+        run: |
+          before=$(cat ./proof.json)
+
+          set +e
+          out=$(case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json --check ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json --check ;;
+            yarn) yarn specproof generate --out ./proof.json --check ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
+          esac 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+
+          if [ "$status" -ne 1 ]; then
+            echo "::error::expected specproof generate --check to exit 1 on a stale proof, got $status"
+            exit 1
+          fi
+          if ! grep -q "is stale relative to the spec/tests" <<< "$out"; then
+            echo "::error::--check failed, but not with the expected staleness message"
+            exit 1
+          fi
+
+          after=$(cat ./proof.json)
+          if [ "$before" != "$after" ]; then
+            echo "::error::--check must not modify ./proof.json — it only verifies, never writes"
+            exit 1
+          fi
+
+      - name: 🩹 Regenerate the proof after drift
+        working-directory: /tmp/consumer
+        run: |
+          before_count=$(node -e "console.log(require('./proof.json').operationCount)")
+
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json ;;
+            yarn) yarn specproof generate --out ./proof.json ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json ;;
+          esac
+
+          after_count=$(node -e "console.log(require('./proof.json').operationCount)")
+          expected=$((before_count + 1))
+          if [ "$after_count" -ne "$expected" ]; then
+            echo "::error::expected operationCount $expected after regenerating (got $after_count)"
+            exit 1
+          fi
+
+      - name: ✅ `--check` passes again after regenerating
+        working-directory: /tmp/consumer
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json --check ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json --check ;;
+            yarn) yarn specproof generate --out ./proof.json --check ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
+          esac
+
+      - name: 🚫 `--check` hard-fails with no spec (plain generate soft-skips)
+        working-directory: /tmp/consumer
+        run: |
+          mv ./api/openapi.json ./api/openapi.json.bak
+          fail=0
+
+          set +e
+          out=$(case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof-nospec.json ;;
+            pnpm) pnpm exec specproof generate --out ./proof-nospec.json ;;
+            yarn) yarn specproof generate --out ./proof-nospec.json ;;
+            bun)  bunx --no-install specproof generate --out ./proof-nospec.json ;;
+          esac 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::plain generate should soft-skip (exit 0) with no spec, got $status"
+            fail=1
+          fi
+          if ! grep -q "no OpenAPI spec found" <<< "$out"; then
+            echo "::error::plain generate's no-spec warning is missing/changed"
+            fail=1
+          fi
+
+          set +e
+          out=$(case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json --check ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json --check ;;
+            yarn) yarn specproof generate --out ./proof.json --check ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
+          esac 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -eq 0 ]; then
+            echo "::error::--check should hard-fail (exit 1) with no spec, got 0"
+            fail=1
+          fi
+          if ! grep -q "no OpenAPI spec found" <<< "$out"; then
+            echo "::error::--check's no-spec failure message is missing/changed"
+            fail=1
+          fi
+
+          mv ./api/openapi.json.bak ./api/openapi.json
+          exit "$fail"
