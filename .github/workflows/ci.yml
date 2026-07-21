@@ -96,7 +96,13 @@ jobs:
       - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # lts/*, not a pinned floor: this job's pnpm setup tracks
+          # `version: latest`, and recent pnpm releases require newer Node
+          # than the floor Next.js needs (pnpm 11.x requires Node >=22.13;
+          # Node 20 makes it crash with ERR_UNKNOWN_BUILTIN_MODULE). The
+          # `Build` job separately pins Node 20 as the deliberate minimum
+          # compatibility check — that one's unaffected by this.
+          node-version: lts/*
 
       - name: 🍞 Setup Bun
         uses: oven-sh/setup-bun@v2
