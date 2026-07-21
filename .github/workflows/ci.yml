@@ -81,3 +81,76 @@ jobs:
 
       - name: 🧾 Run unit & contract tests
         run: bun run test:unit
+
+  verify-install:
+    name: Verify install (${{ matrix.pm }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pm: [npm, pnpm, yarn, bun]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 📌 Setup pnpm
+        if: matrix.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: 🧶 Enable Corepack (Yarn Classic)
+        if: matrix.pm == 'yarn'
+        # Run outside the repo: this repo's own package.json pins
+        # "packageManager": "bun@1.1.38", which corepack doesn't recognize and
+        # errors on if invoked from a directory where that file is in scope.
+        working-directory: /tmp
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+      - name: 🧰 Install this repo's dependencies
+        run: bun install
+
+      - name: 📦 Build the CLI and pack the tarball
+        run: |
+          bun run build:cli
+          npm pack --silent
+          mv specproof-*.tgz /tmp/specproof.tgz
+
+      - name: 🧪 Set up a consumer fixture repo
+        run: |
+          mkdir -p /tmp/consumer
+          cp -R example/. /tmp/consumer/
+          cd /tmp/consumer
+          npm init -y >/dev/null
+
+      - name: 📥 Install the packed tarball via ${{ matrix.pm }}
+        working-directory: /tmp/consumer
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  npm install --no-audit --no-fund /tmp/specproof.tgz ;;
+            pnpm) pnpm add /tmp/specproof.tgz ;;
+            yarn) yarn add /tmp/specproof.tgz ;;
+            bun)  bun add /tmp/specproof.tgz ;;
+          esac
+
+      - name: ✅ Run `specproof generate` via ${{ matrix.pm }}
+        working-directory: /tmp/consumer
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json ;;
+            yarn) yarn specproof generate --out ./proof.json ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json ;;
+          esac
+          test -s ./proof.json
+          node -e "const d=require('./proof.json'); if (!d.operationCount) { console.error('no operations found in proof.json'); process.exit(1); }"
