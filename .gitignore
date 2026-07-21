@@ -9,6 +9,9 @@ out/
 tsconfig.tsbuildinfo
 next-env.d.ts
 
+# compiled CLI (published bin; built by `build:cli` / `prepublishOnly`)
+dist/
+
 # misc
 .DS_Store
 *.log

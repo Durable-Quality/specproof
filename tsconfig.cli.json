@@ -1,0 +1,27 @@
+{
+  // Compiles the published CLI (scripts/cli.ts, scripts/generate-proof.ts)
+  // and the analyzer it depends on (lib/api-test-coverage.ts) to plain JS
+  // under dist/, so the npm package runs on any Node install without a
+  // TypeScript-execution runtime like Bun. Separate from tsconfig.json,
+  // which uses "bundler" resolution for the Next.js app and isn't meant to
+  // emit output. Run via `bun run build:cli` (or `npm run build:cli`);
+  // wired into `npm publish` via the `prepublishOnly` script.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "incremental": false,
+    "noEmit": false,
+    "declaration": false,
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": [
+    "scripts/cli.ts",
+    "scripts/generate-proof.ts",
+    "lib/api-test-coverage.ts"
+  ]
+}

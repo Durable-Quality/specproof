@@ -4,7 +4,8 @@
 // SPECPROOF_SPEC).
 //
 // Run via `bun run generate:proof` (also runs automatically before
-// `bun run dev` / `bun run build`), or `specproof generate` when installed.
+// `bun run dev` / `bun run build`) during development of this repo, or
+// `specproof generate` when installed as a dependency elsewhere.
 // The output defaults to the checked-in artifact at app/proof.generated.json;
 // override with --out / SPECPROOF_OUT to write the proof into the audited
 // repo instead (e.g. to commit it there). --check verifies the output file is
@@ -22,9 +23,26 @@ import {
   resolveSpecPath,
   TARGET_REPO_ROOT,
   type CoverageReport,
-} from '../lib/api-test-coverage';
+} from '../lib/api-test-coverage.js';
 
-const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// This file runs both as source (scripts/generate-proof.ts, via
+// `bun run generate:proof` in this repo's own dev loop) and compiled
+// (dist/scripts/generate-proof.js, once installed as a dependency — see
+// tsconfig.cli.json) — one directory level deeper than the package root.
+// Walking up to the nearest package.json finds the right root either way,
+// rather than hardcoding a hop count that only holds for one of the two
+// layouts.
+function findPackageRoot(startDir: string): string {
+  let dir = startDir;
+  while (!fs.existsSync(path.join(dir, 'package.json'))) {
+    const parent = path.dirname(dir);
+    if (parent === dir) throw new Error(`could not locate package.json above ${startDir}`);
+    dir = parent;
+  }
+  return dir;
+}
+
+const appRoot = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
 
 export const GENERATED_PROOF_PATH = path.join(
   appRoot,
