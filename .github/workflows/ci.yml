@@ -294,3 +294,72 @@ jobs:
 
           mv ./api/openapi.json.bak ./api/openapi.json
           exit "$fail"
+
+      - name: ✅ `specproof dev` serves the audit view
+        working-directory: /tmp/consumer
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof dev  > /tmp/dev.log 2>&1 & ;;
+            pnpm) pnpm exec specproof dev         > /tmp/dev.log 2>&1 & ;;
+            yarn) yarn specproof dev              > /tmp/dev.log 2>&1 & ;;
+            bun)  bunx --no-install specproof dev > /tmp/dev.log 2>&1 & ;;
+          esac
+
+          if ! curl -sf --retry 30 --retry-delay 2 --retry-connrefused \
+            http://localhost:3001/ -o /tmp/dev-response.html; then
+            echo "::error::specproof dev never became reachable on :3001"
+            cat /tmp/dev.log
+            exit 1
+          fi
+          if ! grep -q "consumer" /tmp/dev-response.html; then
+            echo "::error::dev server responded, but the rendered page doesn't contain the audited repo's name"
+            cat /tmp/dev.log
+            exit 1
+          fi
+
+          kill $(lsof -ti:3001) 2>/dev/null || true
+
+      - name: ✅ `specproof build` compiles the app
+        working-directory: /tmp/consumer
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  timeout 180 npx --no-install specproof build ;;
+            pnpm) timeout 180 pnpm exec specproof build ;;
+            yarn) timeout 180 yarn specproof build ;;
+            bun)  timeout 180 bunx --no-install specproof build ;;
+          esac
+
+          if [ ! -d node_modules/specproof/.next ]; then
+            echo "::error::specproof build did not produce a .next output directory"
+            exit 1
+          fi
+
+      - name: ✅ `specproof start` serves the production build
+        working-directory: /tmp/consumer
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof start  > /tmp/start.log 2>&1 & ;;
+            pnpm) pnpm exec specproof start         > /tmp/start.log 2>&1 & ;;
+            yarn) yarn specproof start              > /tmp/start.log 2>&1 & ;;
+            bun)  bunx --no-install specproof start > /tmp/start.log 2>&1 & ;;
+          esac
+
+          if ! curl -sf --retry 30 --retry-delay 2 --retry-connrefused \
+            http://localhost:3001/ -o /tmp/start-response.html; then
+            echo "::error::specproof start never became reachable on :3001"
+            cat /tmp/start.log
+            exit 1
+          fi
+          if ! grep -q "consumer" /tmp/start-response.html; then
+            echo "::error::start server responded, but the rendered page doesn't contain the audited repo's name"
+            cat /tmp/start.log
+            exit 1
+          fi
+
+          kill $(lsof -ti:3001) 2>/dev/null || true

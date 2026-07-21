@@ -9,12 +9,29 @@
 // under any package manager's Node — no TypeScript-execution runtime like Bun
 // required at install time.
 
+import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
-const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// This file runs both as source (scripts/cli.ts, via `bun run dev` in this
+// repo's own dev loop) and compiled (dist/scripts/cli.js, once installed as
+// a dependency — see tsconfig.cli.json) — one directory level deeper than
+// the package root. Walking up to the nearest package.json finds the right
+// root either way, rather than hardcoding a hop count that only holds for
+// one of the two layouts.
+function findPackageRoot(startDir: string): string {
+  let dir = startDir;
+  while (!fs.existsSync(path.join(dir, 'package.json'))) {
+    const parent = path.dirname(dir);
+    if (parent === dir) throw new Error(`could not locate package.json above ${startDir}`);
+    dir = parent;
+  }
+  return dir;
+}
+
+const appRoot = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
 
 const USAGE = `specproof — audit a repo's API test coverage against its OpenAPI spec
 
