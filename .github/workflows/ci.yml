@@ -111,10 +111,6 @@ jobs:
 
       - name: 🧶 Enable Corepack (Yarn Classic)
         if: matrix.pm == 'yarn'
-        # Run outside the repo: this repo's own package.json pins
-        # "packageManager": "bun@1.1.38", which corepack doesn't recognize and
-        # errors on if invoked from a directory where that file is in scope.
-        working-directory: /tmp
         run: corepack enable && corepack prepare yarn@1.22.22 --activate
 
       - name: 🧰 Install this repo's dependencies
@@ -134,13 +130,18 @@ jobs:
           npm init -y >/dev/null
 
       - name: 📥 Install the packed tarball via ${{ matrix.pm }}
+        # --ignore-scripts: this is only exercising `specproof generate`, which
+        # touches no native dependencies, so transitive install/build scripts
+        # (e.g. next's `sharp`) are irrelevant — and skipping them sidesteps
+        # pnpm's ERR_PNPM_IGNORED_BUILDS hard failure on newer pnpm versions
+        # for a script we don't need anyway.
         working-directory: /tmp/consumer
         run: |
           case "${{ matrix.pm }}" in
-            npm)  npm install --no-audit --no-fund /tmp/specproof.tgz ;;
-            pnpm) pnpm add /tmp/specproof.tgz ;;
-            yarn) yarn add /tmp/specproof.tgz ;;
-            bun)  bun add /tmp/specproof.tgz ;;
+            npm)  npm install --ignore-scripts --no-audit --no-fund /tmp/specproof.tgz ;;
+            pnpm) pnpm add --ignore-scripts /tmp/specproof.tgz ;;
+            yarn) yarn add --ignore-scripts /tmp/specproof.tgz ;;
+            bun)  bun add --ignore-scripts /tmp/specproof.tgz ;;
           esac
 
       - name: ✅ Run `specproof generate` via ${{ matrix.pm }}
