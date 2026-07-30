@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
-  /* Product vocabulary (near-black, verdict colors, punch-card marks, green
-     glow) at marketing scale: Geist for prose, Geist Mono for code/labels. */
+  /* Product vocabulary (near-black, verdict colors, punch-card marks) at
+     marketing scale: Geist for prose, Geist Mono for code/labels. */
   :root {
     --bg: #010101;
     --ink: #f2f2ef;
@@ -21,6 +21,11 @@
     --ok: #00e5a0;
     --gap: #ff5c5c;
     --undoc: #f5a623;
+
+    --m-get: #00e5a0;
+    --m-post: #4d9fff;
+    --m-patch: #c084fc;
+    --m-delete: #ef4444;
 
     --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
     --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -41,16 +46,6 @@
     position: relative;
     isolation: isolate;
     overflow-x: hidden;
-  }
-
-  /* faint top glow, identical to the app */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: radial-gradient(120% 40% at 50% -5%, rgba(0, 229, 160, 0.055), transparent 60%);
-    pointer-events: none;
   }
 
   a { color: inherit; }
@@ -185,6 +180,39 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 40%, transparent);
   }
 
+  /* Keeps the stat pinned beside the npm button: the pair wraps as one unit, so
+     the stat never breaks onto its own line while the button stays behind. */
+  .cta-npm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+  }
+  .dl-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--faint);
+  }
+  .dl-num {
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+  .dl-word { white-space: nowrap; }
+  .dl-spark {
+    display: block;
+    overflow: visible;
+    opacity: 0.85;
+  }
+  /* Color lives here, not on the SVG attributes: var() is not reliably
+     substituted inside presentation attributes, but stroke/stop-color are
+     ordinary CSS properties in a stylesheet. */
+  #dl-line { stroke: var(--ok); }
+  .dl-stop-top { stop-color: var(--ok); stop-opacity: 0.24; }
+  .dl-stop-bottom { stop-color: var(--ok); stop-opacity: 0; }
+
   /* ==================================================== app preview */
   .preview { margin-top: 3.5rem; }
 
@@ -208,42 +236,41 @@
     letter-spacing: -0.02em;
     line-height: 1;
   }
-  .r-pct {
-    font-size: 1.5rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    text-align: right;
-  }
-  .r-pct small { font-size: 0.95rem; font-weight: 400; color: var(--faint); }
-  .r-pct .lbl {
-    display: block;
-    margin-top: 0.45rem;
+  .r-time {
     font-size: 0.62rem;
     letter-spacing: 0.16em;
-    text-transform: uppercase;
     color: var(--faint);
-    font-weight: 400;
+    font-variant-numeric: tabular-nums;
   }
 
   .r-summary {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem 1.8rem;
-    padding: 0.7rem 0;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    padding: 0.9rem 0;
     margin-bottom: 1.6rem;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
-  .r-summary .cell { display: flex; align-items: baseline; gap: 0.5rem; }
-  .r-summary .v { font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+  .r-summary .cell:last-child { text-align: right; }
   .r-summary .k {
+    display: block;
     font-size: 0.62rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--faint);
   }
+  .r-summary .v {
+    display: block;
+    margin-top: 0.55rem;
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .r-summary .v small { font-size: 0.9rem; font-weight: 400; color: var(--faint); }
 
   .r-tag {
     display: flex;
@@ -291,10 +318,10 @@
     text-transform: uppercase;
     line-height: 1.8;
   }
-  .method[data-m="get"] { --mc: #00e5a0; }
-  .method[data-m="post"] { --mc: #4d9fff; }
-  .method[data-m="patch"] { --mc: #c084fc; }
-  .method[data-m="delete"] { --mc: #ef4444; }
+  .method[data-m="get"] { --mc: var(--m-get); }
+  .method[data-m="post"] { --mc: var(--m-post); }
+  .method[data-m="patch"] { --mc: var(--m-patch); }
+  .method[data-m="delete"] { --mc: var(--m-delete); }
 
   .marks { display: inline-flex; gap: 3px; align-items: center; flex-shrink: 0; }
   .mark {
@@ -383,11 +410,66 @@
     border-radius: 4px;
   }
 
-  /* stacked code panels */
-  .stack {
-    display: flex;
-    flex-direction: column;
+  /* what it works with: two support panels, one shape, three rules */
+  .support {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  @media (max-width: 860px) { .support { grid-template-columns: 1fr; } }
+
+  .sup { padding: 1.6rem 1.8rem 1.75rem; }
+  .sup > .micro { display: block; margin-bottom: 1.25rem; }
+  .sup dl { margin: 0; display: grid; gap: 1.15rem; }
+  .sup dt {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .sup dd {
+    margin: 0.3rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .sup code, .rule code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    color: var(--ink);
+  }
+
+  .rules {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.2rem;
+    margin-top: 1.2rem;
+  }
+  @media (max-width: 860px) { .rules { grid-template-columns: 1fr; } }
+  .rule { padding: 1.2rem 1.4rem 1.3rem; }
+  .rule .micro { display: block; margin-bottom: 0.6rem; }
+  .rule p {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .rule p .off { color: var(--faint); }
+
+  .note {
+    margin: 1.6rem 0 0;
+    max-width: 52em;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  .note code {
+    font-size: 0.85em;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.07);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
   }
 
   /* code panels */
@@ -463,24 +545,40 @@
         <span>npm install -D specproof</span>
         <button data-copy="npm install -D specproof">Copy</button>
       </div>
-      <a class="btn-gh" href="https://github.com/Durable-Quality/specproof">View on GitHub ↗</a>
+      <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
+      <div class="cta-npm">
+      <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
+      <p class="dl-stat" id="dl-stat" hidden>
+        <span class="dl-num" id="dl-count"></span>
+        <span class="dl-word">total downloads</span>
+        <svg class="dl-spark" viewBox="0 0 88 28" width="88" height="28" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="dl-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop class="dl-stop-top" offset="0%" />
+              <stop class="dl-stop-bottom" offset="100%" />
+            </linearGradient>
+          </defs>
+          <path id="dl-fill" fill="url(#dl-grad)" stroke="none" />
+          <path id="dl-line" fill="none" stroke-width="1.25"
+                stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </p>
+      </div>
     </div>
 
     <div class="preview panel rise" style="--st:3" aria-label="The SpecProof report, as rendered for the demo project bundled with the repo">
       <div class="report">
         <div class="r-mast">
           <span class="r-name">specproof</span>
-          <div class="r-pct">
-            56<small>%</small>
-            <span class="lbl">Documented responses verified</span>
-          </div>
+          <span class="r-time">2026-07-30 17:38 UTC</span>
         </div>
 
         <div class="r-summary">
-          <span class="cell"><span class="v">7</span><span class="k">Operations</span></span>
-          <span class="cell"><span class="v">9/16</span><span class="k">Verified</span></span>
-          <span class="cell"><span class="v">1</span><span class="k">Undocumented</span></span>
-          <span class="cell"><span class="v">2</span><span class="k">Untested routes</span></span>
+          <span class="cell"><span class="k">Operations</span><span class="v">7</span></span>
+          <span class="cell"><span class="k">Status pairs verified</span><span class="v">9/16</span></span>
+          <span class="cell"><span class="k">Gaps</span><span class="v">7</span></span>
+          <span class="cell"><span class="k">Untested routes</span><span class="v">2</span></span>
+          <span class="cell"><span class="k">Responses verified</span><span class="v">56<small>%</small></span></span>
         </div>
 
         <div class="r-legend">
@@ -582,79 +680,86 @@
 <section id="expects">
   <div class="wrap">
     <div class="sec-head">
-      <h2>What it expects</h2>
+      <h2>What it works with</h2>
       <p class="sec-sub">
-        Suites titled with method and path, status assertions, prettier-consistent
-        formatting. Tests written another way are reported as untested, never
-        guessed.
+        An OpenAPI spec and a JavaScript or TypeScript test suite. Nothing to
+        annotate, no plugin, no runner integration.
       </p>
     </div>
 
-    <div class="stack">
-      <div class="code-shell panel">
-        <div class="bar">
-          <span class="micro">tasks.test.ts</span>
-          <span class="micro">Suites titled with method and path</span>
-        </div>
-        <pre>describe(<span class="c2">"POST /tasks"</span>, () =&gt; {
-  it(<span class="c1">"creates a task"</span>, async () =&gt; {
-    const res = await api.post(<span class="c1">"/tasks"</span>, body);
-    expect(res.status).<span class="c2">toBe(201)</span>;
-  });
-});</pre>
+    <div class="support">
+      <div class="sup panel">
+        <span class="micro">Your spec</span>
+        <dl>
+          <dt>OpenAPI 3.x and Swagger 2.0</dt>
+          <dd>
+            Discovered on its own: the shallowest <code>openapi*</code> or
+            <code>swagger*</code> file in the repo. Pass <code>--spec</code> when
+            yours lives somewhere unusual.
+          </dd>
+
+          <dt>JSON or YAML</dt>
+          <dd>
+            Either format, read as-is. Both produce the same proof, so
+            converting between them never reads as drift.
+          </dd>
+        </dl>
       </div>
 
-      <div class="code-shell panel">
-        <div class="bar">
-          <span class="micro">openapi.json</span>
-          <span class="micro">The documented response it is matched against</span>
-        </div>
-        <pre>"paths": {
-  <span class="c2">"/tasks"</span>: {
-    <span class="c2">"post"</span>: {
-      "responses": {
-        <span class="c2">"201"</span>: { "description": <span class="c1">"Task created"</span> }
-      }
-    }
-  }
-}</pre>
-      </div>
+      <div class="sup panel">
+        <span class="micro">Your tests</span>
+        <dl>
+          <dt>TypeScript and JavaScript</dt>
+          <dd>
+            <code>.test.ts</code>, <code>.test.tsx</code>, <code>.test.js</code>,
+            <code>.test.jsx</code>, anywhere in the repo.
+          </dd>
 
-      <div class="code-shell panel">
-        <div class="bar">
-          <span class="micro">tasks.test.ts</span>
-          <span class="micro">{taskId}, [taskId], and :taskId are the same parameter</span>
-        </div>
-        <pre>describe(<span class="c2">"GET /tasks/:taskId"</span>, () =&gt; {
-  it(<span class="c1">"returns a task by id"</span>, async () =&gt; {
-    const res = await api.get(`/tasks/${id}`);
-    expect(res.status).<span class="c2">toBe(200)</span>;
-  });
-});</pre>
-      </div>
-
-      <div class="code-shell panel">
-        <div class="bar">
-          <span class="micro">tasks.test.ts</span>
-          <span class="micro">toBe or toEqual, both count</span>
-        </div>
-        <pre>it(<span class="c1">"returns 404 for an unknown id"</span>, async () =&gt; {
-  const res = await api.get(<span class="c1">"/tasks/task_missing"</span>);
-  expect(res.status).<span class="c2">toEqual(404)</span>;
-});</pre>
-      </div>
-
-      <div class="code-shell panel">
-        <div class="bar">
-          <span class="micro">other.test.ts</span>
-          <span class="micro">Not matched. Reported as untested, never guessed</span>
-        </div>
-        <pre>it(<span class="c1">"creates a task"</span>, async () =&gt; {
-  const { statusCode } = await api.post(<span class="c1">"/tasks"</span>, body);
-  assert.equal(statusCode, 201);
-});</pre>
+          <dt>Vitest, Jest, Bun test</dt>
+          <dd>
+            Any runner with <code>describe</code> / <code>it</code> and
+            <code>expect</code>. The HTTP client makes no difference: SpecProof
+            reads the assertion, not the request.
+          </dd>
+        </dl>
       </div>
     </div>
+
+    <div class="code-shell panel">
+      <div class="bar">
+        <span class="micro">tests/tasks.test.ts</span>
+        <span class="micro">The two lines it reads</span>
+      </div>
+      <pre>describe(<span class="c2">"POST /tasks"</span>, () =&gt; {           <span class="cm">// the operation</span>
+  it(<span class="c1">"creates a task"</span>, async () =&gt; {
+    expect(res.status).<span class="c2">toBe(201)</span>;         <span class="cm">// the response it proves</span>
+  });
+});</pre>
+    </div>
+
+    <div class="rules">
+      <div class="rule panel">
+        <span class="micro">Methods</span>
+        <p>GET POST PUT<br />PATCH DELETE</p>
+      </div>
+      <div class="rule panel">
+        <span class="micro">Path params</span>
+        <p>{taskId} <span class="off">=</span> [taskId]<br />
+          <span class="off">=</span> :taskId</p>
+      </div>
+      <div class="rule panel">
+        <span class="micro">Assertions</span>
+        <p>.toBe(201)<br />.toEqual(201)</p>
+      </div>
+    </div>
+
+    <p class="note">
+      Anything outside that shape is simply not matched: a suite titled
+      <code>"creating tasks"</code>, or a check written
+      <code>assert.equal(statusCode, 201)</code>. Those responses are reported as
+      untested rather than guessed at, so a verified verdict always has a real
+      test behind it.
+    </p>
   </div>
 </section>
 
@@ -742,6 +847,93 @@ jobs:
       });
     });
   });
+
+  // All-time downloads + a 30-day sparkline, from npm's public downloads API.
+  // Any failure leaves the whole stat hidden rather than showing a broken number.
+  (function () {
+    var PKG = 'specproof';
+    var FIRST_DAY = '2026-07-13'; // package created; npm has no data before this
+    var SPARK_DAYS = 30;
+    var W = 88, H = 28, PAD = 3; // must match the svg viewBox
+
+    var stat = document.getElementById('dl-stat');
+    if (!stat) return;
+
+    function iso(date) { return date.toISOString().slice(0, 10); }
+
+    // npm caps a downloads range at 18 months per request, so walk the package's
+    // lifetime in chunks and stitch the daily series back together. Today that is
+    // a single request; it only becomes two once the package is over 18 months old.
+    function ranges() {
+      var out = [];
+      var today = new Date();
+      var start = new Date(FIRST_DAY + 'T00:00:00Z');
+      while (start <= today && out.length < 24) {
+        var end = new Date(start);
+        end.setUTCMonth(end.getUTCMonth() + 18);
+        end.setUTCDate(end.getUTCDate() - 1);
+        if (end > today) end = today;
+        out.push(iso(start) + ':' + iso(end));
+        start = new Date(end);
+        start.setUTCDate(start.getUTCDate() + 1);
+      }
+      return out;
+    }
+
+    // Polyline across the series, scaled to the viewBox. Baseline is pinned at 0
+    // (not the series minimum) so a flat stretch reads as flat, not as a floor.
+    function points(values) {
+      var max = Math.max.apply(null, values) || 1;
+      var step = values.length > 1 ? W / (values.length - 1) : 0;
+      return values.map(function (value, i) {
+        var x = i * step;
+        var y = H - PAD - (value / max) * (H - PAD * 2);
+        return [x, y];
+      });
+    }
+
+    Promise.all(
+      ranges().map(function (range) {
+        return fetch('https://api.npmjs.org/downloads/range/' + range + '/' + PKG).then(
+          function (res) { return res.ok ? res.json() : Promise.reject(res.status); }
+        );
+      })
+    )
+      .then(function (pages) {
+        var days = pages.reduce(function (all, page) {
+          return all.concat(Array.isArray(page.downloads) ? page.downloads : []);
+        }, []);
+
+        // The range endpoint includes the current UTC day, which npm has not
+        // finished counting, so it reports as 0 and would drag the sparkline to
+        // the baseline at its right edge every day. Drop it and end on yesterday,
+        // which is where npm's own point endpoint stops too.
+        var todayIso = new Date().toISOString().slice(0, 10);
+        while (days.length && days[days.length - 1].day === todayIso) days.pop();
+        if (!days.length) return;
+
+        var total = days.reduce(function (sum, day) { return sum + (day.downloads || 0); }, 0);
+        var recent = days.slice(-SPARK_DAYS).map(function (day) { return day.downloads || 0; });
+
+        document.getElementById('dl-count').textContent = total.toLocaleString('en-US');
+
+        if (recent.length > 1) {
+          var pts = points(recent);
+          var line = pts
+            .map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(2) + ' ' + p[1].toFixed(2); })
+            .join(' ');
+          document.getElementById('dl-line').setAttribute('d', line);
+          document.getElementById('dl-fill').setAttribute('d', line + ' L ' + W + ' ' + H + ' L 0 ' + H + ' Z');
+        }
+
+        stat.setAttribute(
+          'aria-label',
+          total.toLocaleString('en-US') + ' downloads all time, with the last ' + recent.length + ' days charted'
+        );
+        stat.hidden = false;
+      })
+      .catch(function () { /* leave the stat hidden */ });
+  })();
 </script>
 </body>
 </html>

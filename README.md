@@ -13,7 +13,7 @@ npx specproof dev   # audit the current repo → http://localhost:3001
 
 Works with any package manager: `bun add -d specproof && bunx specproof dev`, `pnpm add -D specproof && pnpm exec specproof dev`, or the `yarn add -D` equivalent.
 
-The OpenAPI spec is auto-discovered (`openapi*.json` / `swagger*.json`); tests are your `*.test.ts` / `*.test.tsx` / `*.test.js` files.
+The OpenAPI spec is auto-discovered (`openapi*` / `swagger*`, in `.json`, `.yaml`, or `.yml`); tests are your `*.test.ts` / `*.test.tsx` / `*.test.js` files.
 
 ## CLI
 

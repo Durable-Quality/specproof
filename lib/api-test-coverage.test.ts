@@ -8,6 +8,8 @@ import {
   collectTestEvidence,
   dedent,
   extractItBlocks,
+  findSpecCandidates,
+  loadSpec,
   operationKey,
   parseTestFile,
   resolveSpecPath
@@ -289,6 +291,154 @@ describe('resolveSpecPath', () => {
     process.env.SPECPROOF_SPEC = 'missing.json';
     expect(resolveSpecPath(root)).toBeNull();
   });
+
+  it('discovers YAML specs under either extension', () => {
+    expect(resolveSpecPath(makeRepo({ 'openapi.yaml': 'paths: {}' }))).toMatch(/openapi\.yaml$/);
+    expect(resolveSpecPath(makeRepo({ 'openapi.yml': 'paths: {}' }))).toMatch(/openapi\.yml$/);
+    expect(resolveSpecPath(makeRepo({ 'swagger-v2.yaml': 'paths: {}' }))).toMatch(
+      /swagger-v2\.yaml$/
+    );
+  });
+
+  it('prefers a JSON sibling over YAML, so a converted copy keeps winning', () => {
+    // The realistic layout for a repo that converts its spec: both files sit in
+    // the same directory. Whichever we pick must be stable across runs.
+    const root = makeRepo({
+      'openapi.yaml': 'paths: {}',
+      'openapi.json': '{}',
+      'openapi.yml': 'paths: {}'
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'openapi.json'));
+  });
+
+  it('still prefers a shallower YAML spec over a deeper JSON one', () => {
+    const root = makeRepo({
+      'openapi.yaml': 'paths: {}',
+      'docs/api/openapi.json': '{}'
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'openapi.yaml'));
+  });
+
+  it('SPECPROOF_SPEC can point at a YAML spec', () => {
+    const root = makeRepo({
+      'openapi.json': '{}',
+      'docs/service.yaml': 'paths: {}'
+    });
+    process.env.SPECPROOF_SPEC = 'docs/service.yaml';
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'docs/service.yaml'));
+  });
+
+  it('findSpecCandidates exposes the runners-up behind the winner', () => {
+    const root = makeRepo({
+      'openapi.yaml': 'paths: {}',
+      'openapi.json': '{}',
+      'docs/openapi.json': '{}'
+    });
+    expect(findSpecCandidates(root).map((p) => path.relative(root, p))).toEqual([
+      'openapi.json',
+      'openapi.yaml',
+      path.join('docs', 'openapi.json')
+    ]);
+  });
+});
+
+describe('loadSpec', () => {
+  const jsonSpec = {
+    openapi: '3.0.0',
+    tags: [{ name: 'Widgets', description: 'Widget operations' }],
+    paths: {
+      '/widgets': {
+        get: { summary: 'List widgets', responses: { '200': { description: 'OK' } } }
+      }
+    }
+  };
+
+  // Hand-written rather than round-tripped through the YAML serializer: the
+  // point is to parse what a human actually checks in, including unquoted
+  // status codes (YAML integers, not strings).
+  const yamlSpec = [
+    'openapi: 3.0.0',
+    'tags:',
+    '  - name: Widgets',
+    '    description: Widget operations',
+    'paths:',
+    '  /widgets:',
+    '    get:',
+    '      summary: List widgets',
+    '      responses:',
+    '        200:',
+    '          description: OK',
+    ''
+  ].join('\n');
+
+  it('parses YAML into the same document as the equivalent JSON', () => {
+    const root = makeRepo({ 'openapi.json': JSON.stringify(jsonSpec), 'openapi.yaml': yamlSpec });
+    expect(loadSpec(path.join(root, 'openapi.yaml'))).toEqual(
+      loadSpec(path.join(root, 'openapi.json'))
+    );
+  });
+
+  it('reads unquoted YAML status codes as string keys', () => {
+    const root = makeRepo({ 'openapi.yaml': yamlSpec });
+    const responses = loadSpec(path.join(root, 'openapi.yaml')).paths!['/widgets'].get.responses!;
+    expect(Object.keys(responses)).toEqual(['200']);
+  });
+
+  it('accepts the .yml extension', () => {
+    const root = makeRepo({ 'openapi.yml': yamlSpec });
+    expect(Object.keys(loadSpec(path.join(root, 'openapi.yml')).paths!)).toEqual(['/widgets']);
+  });
+
+  it('tolerates a UTF-8 BOM in either format', () => {
+    const root = makeRepo({
+      'openapi.yaml': '\uFEFF' + yamlSpec,
+      'openapi.json': '\uFEFF' + JSON.stringify(jsonSpec)
+    });
+    expect(() => loadSpec(path.join(root, 'openapi.yaml'))).not.toThrow();
+    expect(() => loadSpec(path.join(root, 'openapi.json'))).not.toThrow();
+  });
+
+  it('sniffs the format when the extension says nothing (SPECPROOF_SPEC can point anywhere)', () => {
+    const root = makeRepo({
+      'spec-as-yaml.txt': yamlSpec,
+      'spec-as-json.txt': JSON.stringify(jsonSpec)
+    });
+    expect(loadSpec(path.join(root, 'spec-as-yaml.txt'))).toEqual(
+      loadSpec(path.join(root, 'spec-as-json.txt'))
+    );
+  });
+
+  it('reports malformed YAML with the file it came from', () => {
+    const root = makeRepo({ 'openapi.yaml': 'paths:\n  /widgets:\n   get:\n  bad: [1,\n' });
+    expect(() => loadSpec(path.join(root, 'openapi.yaml'))).toThrow(
+      /could not parse .*openapi\.yaml as YAML/
+    );
+  });
+
+  it('reports malformed JSON the same way', () => {
+    const root = makeRepo({ 'openapi.json': '{ "paths": ' });
+    expect(() => loadSpec(path.join(root, 'openapi.json'))).toThrow(
+      /could not parse .*openapi\.json as JSON/
+    );
+  });
+
+  it('rejects duplicate YAML keys instead of silently keeping one', () => {
+    const root = makeRepo({
+      'openapi.yaml': ['paths:', '  /widgets:', '    get: {}', '    get: {}', ''].join('\n')
+    });
+    expect(() => loadSpec(path.join(root, 'openapi.yaml'))).toThrow(/could not parse/);
+  });
+
+  it('rejects a document that is not an object', () => {
+    const root = makeRepo({ 'openapi.yaml': '', 'swagger.yaml': '- just\n- a list\n' });
+    expect(() => loadSpec(path.join(root, 'openapi.yaml'))).toThrow(/not an OpenAPI document/);
+    expect(() => loadSpec(path.join(root, 'swagger.yaml'))).toThrow(/not an OpenAPI document/);
+  });
+
+  it('rejects a paths value that is not an object', () => {
+    const root = makeRepo({ 'openapi.yaml': 'paths: not-a-map\n' });
+    expect(() => loadSpec(path.join(root, 'openapi.yaml'))).toThrow(/"paths" value that is not/);
+  });
 });
 
 const widgetDescribe = (title: string, its: Array<[string, string]>) =>
@@ -352,19 +502,58 @@ describe('buildCoverageReport', () => {
     }
   };
 
-  const fixtureRepo = () =>
-    makeRepo({
-      'openapi.json': JSON.stringify(spec),
-      'tests/widgets.test.ts': [
-        widgetDescribe('GET /widgets', [['lists widgets', '200']]),
-        widgetDescribe('POST /widgets', [
-          ['creates a widget', '201'],
-          ['rejects bad payloads', '422']
-        ])
-      ].join('\n'),
-      // Trailing slash in the describe title still joins against /gadgets.
-      'tests/gadgets.test.ts': widgetDescribe('GET /gadgets/', [['lists gadgets', '200']])
-    });
+  // The same document as `spec`, hand-written the way a repo would check it
+  // in: unquoted status codes, block sequences, no quoting where YAML does not
+  // demand it.
+  const yamlSpec = [
+    'tags:',
+    '  - name: Widgets',
+    '    description: Widget operations',
+    'paths:',
+    '  /widgets:',
+    '    get:',
+    '      summary: List widgets',
+    '      tags:',
+    '        - Widgets',
+    '      responses:',
+    '        200:',
+    '          description: OK',
+    '        401:',
+    '          description: Unauthorized',
+    '    post:',
+    '      tags:',
+    '        - Widgets',
+    '      responses:',
+    '        201:',
+    '          description: Created',
+    '  "/widgets/{widgetId}":',
+    '    delete:',
+    '      tags:',
+    '        - Admin',
+    '      responses:',
+    '        204:',
+    '          description: Deleted',
+    '  /gadgets:',
+    '    get:',
+    '      responses:',
+    '        200:',
+    '          description: OK',
+    ''
+  ].join('\n');
+
+  const testFiles = {
+    'tests/widgets.test.ts': [
+      widgetDescribe('GET /widgets', [['lists widgets', '200']]),
+      widgetDescribe('POST /widgets', [
+        ['creates a widget', '201'],
+        ['rejects bad payloads', '422']
+      ])
+    ].join('\n'),
+    // Trailing slash in the describe title still joins against /gadgets.
+    'tests/gadgets.test.ts': widgetDescribe('GET /gadgets/', [['lists gadgets', '200']])
+  };
+
+  const fixtureRepo = () => makeRepo({ 'openapi.json': JSON.stringify(spec), ...testFiles });
 
   it('joins spec operations against test evidence and counts coverage', () => {
     const report = buildCoverageReport(fixtureRepo());
@@ -416,8 +605,35 @@ describe('buildCoverageReport', () => {
     expect(del.gapCount).toBe(1);
   });
 
+  it('reports identically from a YAML spec and its JSON conversion', () => {
+    // Both files in one repo, so the reports differ in nothing but the parser
+    // that produced them (repoName is derived from the directory).
+    const root = makeRepo({
+      'openapi.json': JSON.stringify(spec),
+      'openapi.yaml': yamlSpec,
+      ...testFiles
+    });
+
+    process.env.SPECPROOF_SPEC = 'openapi.json';
+    const fromJson = buildCoverageReport(root);
+    process.env.SPECPROOF_SPEC = 'openapi.yaml';
+    const fromYaml = buildCoverageReport(root);
+
+    // Serialized, not merely deep-equal: the drift guard compares the proof
+    // byte for byte, so converting a spec between formats must not so much as
+    // reorder a key.
+    expect(JSON.stringify(fromYaml, null, 2)).toBe(JSON.stringify(fromJson, null, 2));
+    expect(fromYaml.operationCount).toBe(4);
+    expect(fromYaml.tags.map((t) => t.tag)).toEqual(['Widgets', 'Admin', 'Other']);
+  });
+
   it('throws when the repo has no spec to audit', () => {
     const root = makeRepo({ 'readme.md': 'nothing here' });
     expect(() => buildCoverageReport(root)).toThrow(/no OpenAPI spec found/);
+  });
+
+  it('surfaces a malformed spec as a parse error, not a silently empty report', () => {
+    const root = makeRepo({ 'openapi.yaml': 'openapi: 3.0.0\npaths: { /widgets: \n' });
+    expect(() => buildCoverageReport(root)).toThrow(/could not parse/);
   });
 });

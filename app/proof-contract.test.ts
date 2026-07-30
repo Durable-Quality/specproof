@@ -3,6 +3,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 import {
+  loadSpec,
   resolveSpecPath,
   TARGET_REPO_ROOT,
   type CoverageReport,
@@ -38,11 +39,10 @@ if (!specPath) {
 
 describe.skipIf(!specPath)("SpecProof contract", () => {
   it("audits every operation in the OpenAPI spec, and nothing else", () => {
-    const spec = JSON.parse(fs.readFileSync(specPath!, "utf8")) as {
-      paths: Record<string, Record<string, unknown>>;
-    };
+    // loadSpec, not JSON.parse: the audited repo's spec may be YAML.
+    const spec = loadSpec(specPath!);
 
-    const documented = Object.entries(spec.paths)
+    const documented = Object.entries(spec.paths ?? {})
       .flatMap(([opPath, methods]) =>
         Object.keys(methods).map((method) => `${method} ${opPath}`),
       )
