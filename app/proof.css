@@ -213,5 +213,5 @@ button.sp-stamp:focus-visible {
 }
 .sp-oprow:hover,
 .sp-oprow[data-state="open"] {
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.045);
 }
