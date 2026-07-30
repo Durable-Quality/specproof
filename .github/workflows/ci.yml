@@ -295,6 +295,64 @@ jobs:
           mv ./api/openapi.json.bak ./api/openapi.json
           exit "$fail"
 
+      - name: ✅ A YAML spec audits identically to its JSON conversion
+        # The format a spec is serialized in must be invisible to the proof:
+        # a repo that stops converting openapi.yaml to JSON (or starts) should
+        # see no diff and no --check failure. Converted here with a real YAML
+        # writer, run from the checkout because that is where `yaml` is
+        # installed; the consumer fixture only ever sees the .yaml file.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const YAML = require('yaml');
+            const spec = JSON.parse(fs.readFileSync('/tmp/consumer/api/openapi.json', 'utf8'));
+            fs.writeFileSync('/tmp/consumer/api/openapi.yaml', YAML.stringify(spec));
+          "
+
+          cd /tmp/consumer
+
+          # Both files present: discovery keeps auditing the JSON copy, and says so.
+          out=$(case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof-both.json ;;
+            pnpm) pnpm exec specproof generate --out ./proof-both.json ;;
+            yarn) yarn specproof generate --out ./proof-both.json ;;
+            bun)  bunx --no-install specproof generate --out ./proof-both.json ;;
+          esac 2>&1)
+          echo "$out"
+          if ! grep -q "specs sit at the same depth" <<< "$out"; then
+            echo "::error::a YAML spec beside a JSON one must warn about the ambiguity"
+            exit 1
+          fi
+          if ! cmp -s ./proof.json ./proof-both.json; then
+            echo "::error::with both specs present, the JSON copy must win the tie"
+            exit 1
+          fi
+
+          # YAML alone: byte-identical proof, and --check passes against the
+          # proof the JSON spec produced.
+          mv ./api/openapi.json ./api/openapi.json.bak
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof-yaml.json ;;
+            pnpm) pnpm exec specproof generate --out ./proof-yaml.json ;;
+            yarn) yarn specproof generate --out ./proof-yaml.json ;;
+            bun)  bunx --no-install specproof generate --out ./proof-yaml.json ;;
+          esac
+          if ! cmp -s ./proof.json ./proof-yaml.json; then
+            echo "::error::the YAML spec produced a different proof than its JSON conversion"
+            diff ./proof.json ./proof-yaml.json || true
+            exit 1
+          fi
+
+          case "${{ matrix.pm }}" in
+            npm)  npx --no-install specproof generate --out ./proof.json --check ;;
+            pnpm) pnpm exec specproof generate --out ./proof.json --check ;;
+            yarn) yarn specproof generate --out ./proof.json --check ;;
+            bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
+          esac
+
+          mv ./api/openapi.json.bak ./api/openapi.json
+          rm ./api/openapi.yaml ./proof-both.json ./proof-yaml.json
+
       - name: ✅ `specproof dev` serves the audit view
         working-directory: /tmp/consumer
         env:

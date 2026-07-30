@@ -2,9 +2,11 @@
 // compiled from.
 //
 // Joins two sources of truth in the audited target repo:
-//   1. The OpenAPI spec (auto-discovered `openapi*.json` / `swagger*.json`,
-//      or SPECPROOF_SPEC) — every documented operation and its response status
-//      codes.
+//   1. The OpenAPI spec (auto-discovered `openapi*` / `swagger*` in .json,
+//      .yaml, or .yml, or SPECPROOF_SPEC) — every documented operation and its
+//      response status codes. JSON and YAML are parsed into the same document
+//      and produce byte-identical proofs, so converting a spec between the two
+//      is never itself a source of drift.
 //   2. The repo's test files (`*.test.ts` / `*.test.tsx` / `*.test.js`) —
 //      which statuses each operation actually has assertions for, parsed from
 //      `describe("METHOD /path")` blocks and their `.status).toBe(NNN)`
@@ -18,6 +20,8 @@
 
 import fs from 'fs';
 import path from 'path';
+
+import { parse as parseYaml } from 'yaml';
 
 /**
  * The repo the proof audits. Configurable via the SPECPROOF_REPO env var;
@@ -41,7 +45,9 @@ const EXCLUDED_DIRS = new Set([
   '.vercel'
 ]);
 
-const SPEC_FILE_RE = /^(?:openapi|swagger)[^/]*\.json$/i;
+const SPEC_FILE_RE = /^(?:openapi|swagger)[^/]*\.(?:json|ya?ml)$/i;
+const JSON_SPEC_RE = /\.json$/i;
+const YAML_SPEC_RE = /\.ya?ml$/i;
 const TEST_FILE_RE = /\.test\.(?:ts|tsx|js|jsx)$/;
 
 /** Recursively collect files matching `matches`, skipping EXCLUDED_DIRS */
@@ -60,26 +66,116 @@ function walk(dir: string, matches: (name: string) => boolean): string[] {
 }
 
 /**
+ * Every spec the target repo could be audited against, best candidate first:
+ * shallowest in the tree, then alphabetical. The alphabetical tiebreak is what
+ * makes `openapi.json` win over an `openapi.yaml` beside it — a repo that
+ * checks in a converted copy keeps auditing the copy it always did. Callers
+ * that care about ambiguity (the generator warns about it) can inspect the
+ * runners-up; `resolveSpecPath` just takes the winner.
+ */
+export function findSpecCandidates(repoRoot: string = TARGET_REPO_ROOT): string[] {
+  if (!fs.existsSync(repoRoot)) return [];
+  return walk(repoRoot, (name) => SPEC_FILE_RE.test(name)).sort(
+    (a, b) =>
+      a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b)
+  );
+}
+
+/**
+ * Whether a bare filename is one auto-discovery would read as an API
+ * definition. The generator uses this to refuse writing a proof under such a
+ * name: the proof is not a spec, and a file called `openapi-proof.json` would
+ * be picked up as one on the next run.
+ */
+export function looksLikeSpecFile(fileName: string): boolean {
+  return SPEC_FILE_RE.test(fileName);
+}
+
+/** How deep in the tree a candidate sits, for spotting equal-depth ambiguity. */
+export function specDepth(specPath: string): number {
+  return specPath.split(path.sep).length;
+}
+
+/**
  * Locate the OpenAPI spec in the target repo: SPECPROOF_SPEC (relative to the
- * repo root, or absolute) wins; otherwise the shallowest `openapi*.json` /
- * `swagger*.json` in the tree. Returns null when there is nothing to audit.
+ * repo root, or absolute) wins; otherwise the best candidate from
+ * `findSpecCandidates`. Returns null when there is nothing to audit.
  */
 export function resolveSpecPath(repoRoot: string = TARGET_REPO_ROOT): string | null {
   if (process.env.SPECPROOF_SPEC) {
     const explicit = path.resolve(repoRoot, process.env.SPECPROOF_SPEC);
     return fs.existsSync(explicit) ? explicit : null;
   }
-  if (!fs.existsSync(repoRoot)) return null;
-  const candidates = walk(repoRoot, (name) => SPEC_FILE_RE.test(name)).sort(
-    (a, b) =>
-      a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b)
-  );
-  return candidates[0] ?? null;
+  return findSpecCandidates(repoRoot)[0] ?? null;
+}
+
+/**
+ * Read and parse a spec. JSON and YAML are both first-class: the format is a
+ * transport detail, and the parsed document (hence the generated proof) is
+ * identical either way, so converting `openapi.yaml` to `openapi.json` or back
+ * never shows up as drift. Extensions the discovery regex would not match are
+ * sniffed rather than assumed, because SPECPROOF_SPEC can point anywhere.
+ */
+export function loadSpec(specPath: string): OpenApiDocument {
+  // A UTF-8 BOM is legal in the file and fatal to both parsers.
+  const source = fs.readFileSync(specPath, 'utf8').replace(/^\uFEFF/, '');
+
+  const format = YAML_SPEC_RE.test(specPath)
+    ? 'YAML'
+    : JSON_SPEC_RE.test(specPath)
+      ? 'JSON'
+      : 'JSON or YAML';
+
+  let parsed: unknown;
+  try {
+    if (YAML_SPEC_RE.test(specPath)) {
+      // YAML 1.2, so duplicate keys and multi-document files are errors here
+      // rather than a silently truncated spec.
+      parsed = parseYaml(source);
+    } else if (JSON_SPEC_RE.test(specPath)) {
+      parsed = JSON.parse(source);
+    } else {
+      try {
+        parsed = JSON.parse(source);
+      } catch {
+        parsed = parseYaml(source);
+      }
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.split('\n')[0] : String(error);
+    throw new Error(`api-test-coverage: could not parse ${specPath} as ${format}: ${detail}`);
+  }
+
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(
+      `api-test-coverage: ${specPath} parsed, but is not an OpenAPI document (expected an object at the top level)`
+    );
+  }
+  const paths = (parsed as { paths?: unknown }).paths;
+  if (paths !== undefined && (paths === null || typeof paths !== 'object' || Array.isArray(paths))) {
+    throw new Error(
+      `api-test-coverage: ${specPath} has a "paths" value that is not an object`
+    );
+  }
+
+  return parsed as OpenApiDocument;
 }
 
 // ============================================================================
 // Types
 // ============================================================================
+
+/** The slice of an OpenAPI/Swagger document the analyzer reads. */
+export interface OpenApiDocument {
+  tags?: Array<{ name: string; description?: string }>;
+  paths?: Record<
+    string,
+    Record<
+      string,
+      { summary?: string; tags?: string[]; responses?: Record<string, { description?: string }> }
+    >
+  >;
+}
 
 export interface TestSnippet {
   /** it() title */
@@ -318,13 +414,7 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
     );
   }
 
-  const spec = JSON.parse(fs.readFileSync(specPath, 'utf8')) as {
-    tags?: Array<{ name: string; description?: string }>;
-    paths: Record<
-      string,
-      Record<string, { summary?: string; tags?: string[]; responses?: Record<string, { description?: string }> }>
-    >;
-  };
+  const spec = loadSpec(specPath);
 
   const evidenceByOperation = collectTestEvidence(repoRoot);
   const tagOrder = (spec.tags ?? []).map((t) => t.name);

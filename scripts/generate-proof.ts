@@ -19,8 +19,11 @@ import { fileURLToPath } from 'url';
 
 import {
   buildCoverageReport,
+  findSpecCandidates,
+  looksLikeSpecFile,
   resolveRepoName,
   resolveSpecPath,
+  specDepth,
   TARGET_REPO_ROOT,
   type CoverageReport,
 } from '../lib/api-test-coverage.js';
@@ -80,14 +83,53 @@ export function parseGenerateArgs(argv: string[]): GenerateOptions {
   return options;
 }
 
+/** A path shortened to a cwd-relative one when that is actually shorter. */
+function labelFor(target: string): string {
+  const relative = path.relative(process.cwd(), target);
+  return relative && !relative.startsWith('..') ? relative : target;
+}
+
+/**
+ * Warn when discovery had to break a tie. The case worth catching: a repo that
+ * keeps `openapi.yaml` next to a converted `openapi.json`, where auditing the
+ * wrong one means proving coverage against a spec nobody edits. Discovery is
+ * deterministic (see findSpecCandidates), but silently deterministic is not
+ * good enough when one of the two files is stale.
+ */
+function warnOnAmbiguousSpec(specPath: string): void {
+  if (process.env.SPECPROOF_SPEC) return; // explicitly chosen, nothing to warn about
+  const tied = findSpecCandidates().filter(
+    (candidate) => specDepth(candidate) === specDepth(specPath)
+  );
+  if (tied.length < 2) return;
+  console.warn(
+    `generate-proof: ${tied.length} specs sit at the same depth (${tied
+      .map(labelFor)
+      .join(', ')}); auditing ${labelFor(specPath)}. ` +
+      'Pass --spec (or SPECPROOF_SPEC) to choose deliberately.'
+  );
+}
+
 export function runGenerate(options: GenerateOptions = {}): number {
   const outPath = path.resolve(
     options.out ?? process.env.SPECPROOF_OUT ?? GENERATED_PROOF_PATH
   );
-  const relative = path.relative(process.cwd(), outPath);
-  const outLabel = relative && !relative.startsWith('..') ? relative : outPath;
+  const outLabel = labelFor(outPath);
 
-  if (!resolveSpecPath()) {
+  // The proof is an artifact about the spec, never a spec. Writing it under a
+  // discoverable spec name would either clobber the real definition or make
+  // the next run audit the proof as though it were one.
+  if (looksLikeSpecFile(path.basename(outPath))) {
+    console.error(
+      `generate-proof: refusing to write the proof to ${outLabel}: spec auto-discovery reads ` +
+        'openapi* / swagger* files as the API definition, so the next run would audit the ' +
+        'proof instead of the spec. Choose another --out path.'
+    );
+    return 1;
+  }
+
+  const specPath = resolveSpecPath();
+  if (!specPath) {
     const hint =
       `no OpenAPI spec found under ${TARGET_REPO_ROOT} — ` +
       'set SPECPROOF_REPO to the repo to audit (or SPECPROOF_SPEC to the spec file)';
@@ -117,10 +159,28 @@ export function runGenerate(options: GenerateOptions = {}): number {
     return 0;
   }
 
-  const proof = buildProof();
+  warnOnAmbiguousSpec(specPath);
+  const specLabel = labelFor(specPath);
+
+  let proof: Record<string, unknown>;
+  try {
+    proof = buildProof();
+  } catch (error) {
+    // An unreadable spec is a hard failure in both modes: with or without
+    // --check, we cannot say anything about the proof's accuracy. Reporting it
+    // as a one-line message rather than an uncaught stack keeps a malformed
+    // YAML (or JSON) spec legible in CI logs.
+    console.error(
+      `generate-proof: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return 1;
+  }
+
   const operationCount = (proof.operationCount as number) ?? 0;
   if (operationCount === 0) {
-    console.error('generate-proof: no operations found in the OpenAPI spec — refusing to write an empty proof');
+    console.error(
+      `generate-proof: no operations found in ${specLabel} — refusing to write an empty proof`
+    );
     return 1;
   }
   const serialized = JSON.stringify(proof, null, 2) + '\n';
@@ -134,12 +194,16 @@ export function runGenerate(options: GenerateOptions = {}): number {
       );
       return 1;
     }
-    console.log(`generate-proof: ${outLabel} is up to date (${operationCount} operations)`);
+    console.log(
+      `generate-proof: ${outLabel} is up to date with ${specLabel} (${operationCount} operations)`
+    );
     return 0;
   }
 
   fs.writeFileSync(outPath, serialized);
-  console.log(`generate-proof: wrote ${outLabel} (${operationCount} operations)`);
+  console.log(
+    `generate-proof: wrote ${outLabel} from ${specLabel} (${operationCount} operations)`
+  );
   return 0;
 }
 

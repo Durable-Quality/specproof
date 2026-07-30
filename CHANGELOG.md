@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-30
+
+### Added
+- YAML OpenAPI specs are read directly: auto-discovery now matches `openapi*` / `swagger*` in `.json`, `.yaml`, and `.yml`, and `--spec` accepts any of them (any other extension is sniffed). A spec and its conversion to the other format produce a byte-identical proof, so switching formats never registers as drift.
+- `specproof generate` warns when two specs sit at the same depth in the tree, naming the one it audited. The case that matters is a `openapi.yaml` checked in beside a converted `openapi.json`, where the loser is usually stale.
+- `generate` now names the spec it read in its success and `--check` output.
+
+### Changed
+- A malformed, empty, or non-object spec now fails with a one-line message instead of an uncaught stack trace, in both `generate` and `generate --check`, and never overwrites an existing proof.
+- Tag section headers in the report no longer carry a leading sequence number.
+
+### Fixed
+- `generate` refuses an `--out` path that spec auto-discovery would read as an API definition (`openapi*` / `swagger*`), which previously let the proof overwrite the spec it was compiled from, or be audited as a spec on the next run.
+
 ## [0.6.1] - 2026-07-30
 
 ### Added

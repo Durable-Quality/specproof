@@ -257,9 +257,6 @@ function TagSection({
       style={{ '--sp-stagger': index + 3 } as React.CSSProperties}
     >
       <AccordionTrigger className="items-baseline gap-4 border-b py-0 pb-2 hover:no-underline">
-        <span className="text-[0.65rem] tracking-[0.2em] text-muted-foreground">
-          {String(index + 1).padStart(2, '0')}
-        </span>
         <span className="text-sm font-semibold uppercase tracking-[0.08em]">{tag.tag}</span>
         <span className="hidden text-xs text-muted-foreground sm:block">{tag.description}</span>
         <span className="ml-auto text-sm font-normal tabular-nums text-muted-foreground">

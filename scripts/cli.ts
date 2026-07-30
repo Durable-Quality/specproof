@@ -45,8 +45,9 @@ Commands:
 
 Options:
   --repo <path>   Repo to audit (default: current directory; env SPECPROOF_REPO)
-  --spec <path>   OpenAPI spec, relative to the repo root when the auto-discovery
-                  of openapi*.json / swagger*.json doesn't apply (env SPECPROOF_SPEC)
+  --spec <path>   OpenAPI spec (JSON or YAML), relative to the repo root when the
+                  auto-discovery of openapi* / swagger* doesn't apply, or when a
+                  repo holds more than one (env SPECPROOF_SPEC)
   --out <path>    generate only: where to write the proof (default: the app's
                   bundled artifact; env SPECPROOF_OUT)
   --check         generate only: verify the proof at --out is up to date instead
