@@ -1,6 +1,8 @@
 import type { CoverageReport } from '@/lib/api-test-coverage';
 import { CoverageProof } from '@/components/CoverageProof';
 
+import pkg from '@/package.json';
+
 import proof from './proof.generated.json';
 
 import './proof.css';
@@ -16,5 +18,7 @@ import './proof.css';
  */
 export default function SpecProofPage() {
   const report = proof as unknown as CoverageReport;
-  return <CoverageProof report={report} compiledAt={new Date().toISOString()} />;
+  return (
+    <CoverageProof report={report} compiledAt={new Date().toISOString()} version={pkg.version} />
+  );
 }
