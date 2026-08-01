@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.2] - 2026-08-01
 
-### Added
-- Added route breakdown and test snippet detail screenshots to the README.
+### Changed
+- Replaced the README's static coverage report screenshot with a walkthrough GIF covering the route breakdown and test snippet detail views.
 
 ## [0.7.1] - 2026-08-01
 
