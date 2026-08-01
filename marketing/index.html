@@ -194,13 +194,19 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 40%, transparent);
   }
 
-  /* Keeps the stat pinned beside the npm button: the pair wraps as one unit, so
-     the stat never breaks onto its own line while the button stays behind. */
-  .cta-npm {
+  /* GitHub and npm buttons stay paired on one row (shrinking before they
+     wrap) so they never stack even on narrow phones; the download stat is
+     a separate flex item free to wrap onto its own line below them. */
+  .cta-links {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 1rem;
+  }
+  .cta-links .btn-gh {
+    flex: 1 1 auto;
+    justify-content: center;
+    white-space: nowrap;
   }
   .dl-stat {
     display: flex;
@@ -685,6 +691,8 @@
     .cta-end { padding: 3rem 1.5rem 3.25rem; border-radius: 22px; }
     .cta-end .sec-sub { margin-bottom: 2.25rem; }
     .cta-end .cta-row { gap: 0.8rem; }
+    .cta-links { gap: 0.6rem; }
+    .cta-links .btn-gh { padding: 0.75rem 0.6rem; font-size: 0.82rem; }
   }
 
   /* ============================================================= footer */
@@ -763,25 +771,25 @@
             <button data-copy="yarn add -D specproof">Copy</button>
           </div>
         </div>
-        <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
-        <div class="cta-npm">
+        <div class="cta-links">
+          <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
           <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
-          <p class="dl-stat" id="dl-stat" hidden>
-            <span class="dl-num" id="dl-count"></span>
-            <span class="dl-word">total downloads</span>
-            <svg class="dl-spark" viewBox="0 0 88 28" width="88" height="28" aria-hidden="true" focusable="false">
-              <defs>
-                <linearGradient id="dl-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop class="dl-stop-top" offset="0%" />
-                  <stop class="dl-stop-bottom" offset="100%" />
-                </linearGradient>
-              </defs>
-              <path id="dl-fill" fill="url(#dl-grad)" stroke="none" />
-              <path id="dl-line" fill="none" stroke-width="1.25"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </p>
         </div>
+        <p class="dl-stat" id="dl-stat" hidden>
+          <span class="dl-num" id="dl-count"></span>
+          <span class="dl-word">total downloads</span>
+          <svg class="dl-spark" viewBox="0 0 88 28" width="88" height="28" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="dl-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop class="dl-stop-top" offset="0%" />
+                <stop class="dl-stop-bottom" offset="100%" />
+              </linearGradient>
+            </defs>
+            <path id="dl-fill" fill="url(#dl-grad)" stroke="none" />
+            <path id="dl-line" fill="none" stroke-width="1.25"
+                  stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </p>
       </div>
     </div>
 
@@ -1152,8 +1160,10 @@ jobs:
         </div>
       </div>
       <div class="cta-row">
-        <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
-        <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
+        <div class="cta-links">
+          <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
+          <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
+        </div>
       </div>
     </div>
   </div>
