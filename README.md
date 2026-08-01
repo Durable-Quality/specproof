@@ -4,7 +4,7 @@
 
 Audit your API test coverage against your OpenAPI spec. SpecProof cross-examines every operation and response status against your test suite's assertions and renders the verdicts as a browsable report.
 
-<img src="https://raw.githubusercontent.com/Durable-Quality/specproof/main/public/screenshot.png" alt="SpecProof coverage report" width="720" />
+<img src="https://raw.githubusercontent.com/Durable-Quality/specproof/main/public/specproof.gif" alt="SpecProof coverage report walkthrough" width="720" />
 
 ## Quick start
 
