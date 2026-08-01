@@ -6,6 +6,10 @@ Audit your API test coverage against your OpenAPI spec. SpecProof cross-examines
 
 <img src="https://raw.githubusercontent.com/Durable-Quality/specproof/main/public/screenshot.png" alt="SpecProof coverage report" width="720" />
 
+<img src="https://raw.githubusercontent.com/Durable-Quality/specproof/main/public/route.png" alt="SpecProof route breakdown" width="720" />
+
+<img src="https://raw.githubusercontent.com/Durable-Quality/specproof/main/public/test.png" alt="SpecProof test snippet detail" width="720" />
+
 ## Quick start
 
 ```bash
