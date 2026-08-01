@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SpecProof: your OpenAPI spec, cross-checked against your tests</title>
+<title>SpecProof: Your OpenAPI spec, cross-checked against your tests</title>
 <meta name="description" content="SpecProof compares your OpenAPI spec with your test suite and gives every documented response a verdict: verified, no test, or undocumented. Every verdict links to the test behind it." />
+<link rel="icon" type="image/png" href="icon.png" />
+<link rel="apple-touch-icon" href="icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -95,21 +97,33 @@
     height: 4rem;
   }
   .nav .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
     font-weight: 600;
     font-size: 1.05rem;
     letter-spacing: -0.02em;
     text-decoration: none;
   }
-  .nav a.gh {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-decoration: none;
-    transition: color 150ms ease;
+  /* icon.png is a 512px square that's mostly black padding around a short, wide
+     row of marks (glyph at x 132-380, y 210-301). The wrapper is that bounding
+     box plus a little air; the image is oversized and centered inside it so the
+     padding is clipped rather than left as dead space beside the wordmark. */
+  .nav .brand-mark {
+    position: relative;
+    flex: none;
+    width: 2.625rem;
+    height: 1.125rem;
+    overflow: hidden;
   }
-  .nav a.gh:hover { color: var(--ok); }
+  .nav .brand-mark img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4.875rem;
+    height: 4.875rem;
+    transform: translate(-50%, -50%);
+  }
 
   /* =============================================================== hero */
   .hero { padding: 6.5rem 0 6rem; }
@@ -364,7 +378,8 @@
     overflow: hidden;
   }
 
-  .sec-head { margin-bottom: 2.4rem; max-width: 40em; }
+  .sec-head { margin-bottom: 2.4rem; }
+  .sec-head .sec-sub { max-width: none; }
   h2 {
     margin: 0;
     font-size: clamp(1.55rem, 3.2vw, 2rem);
@@ -387,13 +402,12 @@
   }
   @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
   .step { padding: 1.7rem 1.8rem 1.9rem; }
-  .step .no {
-    font-family: var(--mono);
+  .step .icon {
     display: block;
-    font-size: 0.72rem;
-    letter-spacing: 0.16em;
+    width: 22px;
+    height: 22px;
     color: var(--ok);
-    margin-bottom: 1.1rem;
+    margin-bottom: 1rem;
   }
   .step h3 {
     margin: 0 0 0.45rem;
@@ -402,75 +416,108 @@
     letter-spacing: -0.02em;
   }
   .step p { margin: 0; font-size: 0.95rem; line-height: 1.7; color: var(--muted); }
-  .step code, .sec-sub code {
+  /* One inline-code token for every flag, filename, or identifier that appears
+     inside prose. Block code (.pm-cmd, .sup-code pre) is styled on its own. */
+  .step code,
+  .sec-sub code,
+  .sup code,
+  .pm-note code {
+    font-family: var(--mono);
     font-size: 0.85em;
     color: var(--ink);
-    background: rgba(255, 255, 255, 0.07);
-    padding: 0.1em 0.4em;
-    border-radius: 4px;
+    background: var(--raise);
+    border-radius: 5px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    padding: 0.15em 0.4em;
   }
 
-  /* what it works with: two support panels, one shape, three rules */
+  /* what it works with: three numbered panels, one shape, read top to bottom */
   .support {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 1.2rem;
-    margin-bottom: 1.2rem;
   }
-  @media (max-width: 860px) { .support { grid-template-columns: 1fr; } }
 
   .sup { padding: 1.6rem 1.8rem 1.75rem; }
-  .sup > .micro { display: block; margin-bottom: 1.25rem; }
-  .sup dl { margin: 0; display: grid; gap: 1.15rem; }
+  .sup-head .micro { display: block; margin-bottom: 0.6rem; }
+  .sup h3 {
+    margin: 0;
+    font-size: 1.18rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  /* Shared by the two input panels and the example panel, so all three open
+     the same way: number, title, one line of what the piece is for. */
+  .sup-lede {
+    margin: 0.45rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  /* Numbers sit in the gutter so the two items line up under the lede above. */
+  .sup-list {
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: sup-item;
+    display: grid;
+    gap: 0.4rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  .sup-list li {
+    counter-increment: sup-item;
+    position: relative;
+    padding-left: 1.65rem;
+  }
+  .sup-list li::before {
+    content: counter(sup-item);
+    position: absolute;
+    left: 0;
+    top: 0.1em;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ok);
+  }
+  .sup-list + .sup-lede { margin-top: 0.85rem; }
+
+  .sup dl {
+    margin: 1.35rem 0 0;
+    padding-top: 1.35rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: grid;
+    gap: 1.15rem;
+  }
   .sup dt {
     font-size: 1rem;
     font-weight: 600;
     letter-spacing: -0.015em;
   }
+  /* No prose max-width here: the panels are full-width now, and a cap narrower
+     than the panel breaks each line short of the edge and orphans the tail. */
   .sup dd {
     margin: 0.3rem 0 0;
     font-size: 0.92rem;
     line-height: 1.65;
     color: var(--muted);
   }
-  .sup code, .rule code {
-    font-family: var(--mono);
-    font-size: 0.85em;
-    color: var(--ink);
-  }
-
-  .rules {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.2rem;
-    margin-top: 1.2rem;
-  }
-  @media (max-width: 860px) { .rules { grid-template-columns: 1fr; } }
-  .rule { padding: 1.2rem 1.4rem 1.3rem; }
-  .rule .micro { display: block; margin-bottom: 0.6rem; }
-  .rule p {
+  /* The third panel: same head as the two above it, code hung below a hairline
+     so the sample reads as the payoff of the section rather than a loose block. */
+  .sup-code { padding: 0; }
+  .sup-code .sup-head { padding: 1.6rem 1.8rem 1.5rem; }
+  .sup-code pre {
     margin: 0;
+    padding: 1.3rem 1.8rem 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     font-family: var(--mono);
-    font-size: 0.84rem;
-    line-height: 1.7;
-    color: var(--ink);
+    font-size: 0.88rem;
+    line-height: 2.1;
+    overflow-x: auto;
   }
-  .rule p .off { color: var(--faint); }
-
-  .note {
-    margin: 1.6rem 0 0;
-    max-width: 52em;
-    font-size: 0.95rem;
-    line-height: 1.7;
-    color: var(--muted);
-  }
-  .note code {
-    font-size: 0.85em;
-    color: var(--ink);
-    background: rgba(255, 255, 255, 0.07);
-    padding: 0.1em 0.4em;
-    border-radius: 4px;
-  }
+  .sup-code .c1 { color: var(--faint); user-select: none; }
+  .sup-code .c2 { color: var(--ok); }
+  .sup-code .cm { color: var(--faint); }
 
   /* code panels */
   .code-shell .bar {
@@ -481,7 +528,9 @@
     gap: 0.3rem 1.5rem;
     padding: 0.9rem 1.3rem 0;
   }
-  .code-shell .bar button {
+  /* Scoped to direct children so the package-manager tabs, which also live in
+     the bar, keep their own styling. */
+  .code-shell .bar > button {
     all: unset;
     cursor: pointer;
     font-family: var(--mono);
@@ -492,7 +541,7 @@
     color: var(--faint);
     transition: color 150ms ease;
   }
-  .code-shell .bar button:hover, .code-shell .bar button.copied { color: var(--ok); }
+  .code-shell .bar > button:hover, .code-shell .bar > button.copied { color: var(--ok); }
   .code-shell pre {
     margin: 0;
     padding: 1rem 1.3rem 1.3rem;
@@ -504,6 +553,139 @@
   .code-shell .c1 { color: var(--faint); user-select: none; }
   .code-shell .c2 { color: var(--ok); }
   .code-shell .cm { color: var(--faint); }
+
+  /* ============================================ package-manager tabs */
+  /* One tab row drives both step blocks, so the manager is picked once. */
+  .pm-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    /* Pulls the first tab's own padding back so its label lines up with the
+       section heading above it. */
+    margin: 0 0 1rem -0.6rem;
+  }
+  .pm-tabs button {
+    all: unset;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    transition: color 150ms ease, box-shadow 150ms ease;
+  }
+  .pm-tabs button:hover { color: var(--ink); }
+  .pm-tabs button:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
+  .pm-tabs button[aria-selected="true"] {
+    color: var(--ok);
+    background: var(--raise);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  /* The chip form of a tab pane, used where a command sits inline in a row
+     (hero, closing CTA) rather than inside a code shell. */
+  .pm-chip[hidden] { display: none; }
+
+  .start-steps {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .pm-panel {
+    padding: 0.85rem 1.3rem 1.15rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    line-height: 2.1;
+  }
+  .pm-panel[hidden] { display: none; }
+  .pm-cmd {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .pm-cmd code {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .pm-cmd button {
+    all: unset;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    transition: color 150ms ease;
+  }
+  .pm-cmd button:hover, .pm-cmd button.copied { color: var(--ok); }
+  .pm-cmd button:focus-visible { color: var(--ok); }
+
+  .pm-note {
+    margin: 0.85rem 0 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .pm-note .c2 { font-family: var(--mono); color: var(--ok); }
+
+  /* ================================================================ cta */
+  /* The closing act. Not one of the flat `.panel` cards: a narrower, softer
+     vessel that lifts off the page — big radius, a verdict-green rim, a wash
+     of green falling from the top edge and a second bloom rising from below,
+     over a deep drop shadow. The type steps up toward hero scale so the last
+     thing on the page carries the most weight. */
+  #cta { padding: 4.5rem 0 7.5rem; }
+  .cta-end {
+    position: relative;
+    overflow: hidden;
+    max-width: 47.5rem;
+    margin: 0 auto;
+    padding: 4rem 2.5rem 4.25rem;
+    text-align: center;
+    border-radius: 28px;
+    border: 1px solid color-mix(in srgb, var(--ok) 22%, transparent);
+    background:
+      radial-gradient(110% 110% at 50% 0, color-mix(in srgb, var(--ok) 9%, transparent), transparent 55%),
+      rgba(12, 12, 13, 0.8);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.4),
+      0 28px 70px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  }
+  /* The bloom under the buttons; sits behind the content, never catches clicks. */
+  .cta-end::after {
+    content: "";
+    position: absolute;
+    bottom: -55%;
+    left: 50%;
+    width: 23rem;
+    height: 23rem;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--ok) 11%, transparent), transparent 65%);
+    pointer-events: none;
+  }
+  .cta-end > * { position: relative; z-index: 1; }
+  .cta-end h2 {
+    font-size: clamp(2.1rem, 4.6vw, 3rem);
+    letter-spacing: -0.03em;
+    margin-bottom: 1.1rem;
+  }
+  .cta-end .sec-sub { margin: 0 auto 2.75rem; max-width: 30em; font-size: 1.05rem; }
+  /* Command on its own centered line, the two links stacked beneath it. */
+  .cta-end .cta-row { justify-content: center; }
+  .cta-end .cta-row + .cta-row { margin-top: 1.4rem; }
+  /* Same tab row as Get started, centered and without the left pull, since
+     nothing here is flush to a heading. */
+  .cta-tabs { justify-content: center; margin: 0 0 1.4rem; }
+  @media (max-width: 640px) {
+    #cta { padding: 3rem 0 5rem; }
+    .cta-end { padding: 3rem 1.5rem 3.25rem; border-radius: 22px; }
+    .cta-end .sec-sub { margin-bottom: 2.25rem; }
+    .cta-end .cta-row { gap: 0.8rem; }
+  }
 
   /* ============================================================= footer */
   footer { padding: 4.5rem 0 3.5rem; }
@@ -518,14 +700,20 @@
   }
   .foot-links a { text-decoration: none; transition: color 150ms ease; }
   .foot-links a:hover { color: var(--ok); }
+  .foot-links .built a {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
 </style>
 </head>
 <body>
 
 <nav class="nav">
   <div class="wrap">
-    <a class="brand" href="#">SpecProof</a>
-    <a class="gh" href="https://github.com/Durable-Quality/specproof">GitHub ↗</a>
+    <a class="brand" href="#">
+      <span class="brand-mark"><img src="icon.png" alt="" width="512" height="512" /></span>
+      SpecProof
+    </a>
   </div>
 </nav>
 
@@ -539,30 +727,61 @@
       SpecProof compares your OpenAPI spec with your test suite.<br />
       Every documented response gets a verdict, and every verdict links to the test behind it.
     </p>
-    <div class="cta-row rise" style="--st:2">
-      <div class="copy-chip">
-        <span class="prompt">$</span>
-        <span>npm install -D specproof</span>
-        <button data-copy="npm install -D specproof">Copy</button>
+    <div class="rise" style="--st:2">
+      <div class="pm-tabs" role="tablist" aria-label="Package manager">
+        <button role="tab" data-pm="bun" id="hero-tab-bun" aria-controls="hero-cmd-bun" aria-selected="false" tabindex="-1">bun</button>
+        <button role="tab" data-pm="npm" id="hero-tab-npm" aria-controls="hero-cmd-npm" aria-selected="true">npm</button>
+        <button role="tab" data-pm="pnpm" id="hero-tab-pnpm" aria-controls="hero-cmd-pnpm" aria-selected="false" tabindex="-1">pnpm</button>
+        <button role="tab" data-pm="yarn" id="hero-tab-yarn" aria-controls="hero-cmd-yarn" aria-selected="false" tabindex="-1">yarn</button>
       </div>
-      <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
-      <div class="cta-npm">
-      <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
-      <p class="dl-stat" id="dl-stat" hidden>
-        <span class="dl-num" id="dl-count"></span>
-        <span class="dl-word">total downloads</span>
-        <svg class="dl-spark" viewBox="0 0 88 28" width="88" height="28" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id="dl-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop class="dl-stop-top" offset="0%" />
-              <stop class="dl-stop-bottom" offset="100%" />
-            </linearGradient>
-          </defs>
-          <path id="dl-fill" fill="url(#dl-grad)" stroke="none" />
-          <path id="dl-line" fill="none" stroke-width="1.25"
-                stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </p>
+      <div class="cta-row">
+        <div class="pm-chip" id="hero-cmd-bun" role="tabpanel" aria-labelledby="hero-tab-bun" hidden>
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>bun add -d specproof</span>
+            <button data-copy="bun add -d specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-chip" id="hero-cmd-npm" role="tabpanel" aria-labelledby="hero-tab-npm">
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>npm install -D specproof</span>
+            <button data-copy="npm install -D specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-chip" id="hero-cmd-pnpm" role="tabpanel" aria-labelledby="hero-tab-pnpm" hidden>
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>pnpm add -D specproof</span>
+            <button data-copy="pnpm add -D specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-chip" id="hero-cmd-yarn" role="tabpanel" aria-labelledby="hero-tab-yarn" hidden>
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>yarn add -D specproof</span>
+            <button data-copy="yarn add -D specproof">Copy</button>
+          </div>
+        </div>
+        <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
+        <div class="cta-npm">
+          <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
+          <p class="dl-stat" id="dl-stat" hidden>
+            <span class="dl-num" id="dl-count"></span>
+            <span class="dl-word">total downloads</span>
+            <svg class="dl-spark" viewBox="0 0 88 28" width="88" height="28" aria-hidden="true" focusable="false">
+              <defs>
+                <linearGradient id="dl-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop class="dl-stop-top" offset="0%" />
+                  <stop class="dl-stop-bottom" offset="100%" />
+                </linearGradient>
+              </defs>
+              <path id="dl-fill" fill="url(#dl-grad)" stroke="none" />
+              <path id="dl-line" fill="none" stroke-width="1.25"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </p>
+        </div>
       </div>
     </div>
 
@@ -657,21 +876,30 @@
 
     <div class="steps">
       <div class="step panel">
-        <span class="no">01</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="M15.4 15.4 21 21" />
+        </svg>
         <h3>Read</h3>
         <p>Finds your OpenAPI spec, scans your tests. No configuration.</p>
       </div>
 
       <div class="step panel">
-        <span class="no">02</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M3 8h14m-4-4 4 4-4 4" />
+          <path d="M21 16H7m4-4-4 4 4 4" />
+        </svg>
         <h3>Compare</h3>
         <p>Matches every documented response to the assertions that check it.</p>
       </div>
 
       <div class="step panel">
-        <span class="no">03</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M12 3l7.5 3v6c0 4.6-3.2 7.9-7.5 9-4.3-1.1-7.5-4.4-7.5-9V6L12 3z" />
+          <path d="M9 12l2.2 2.2L15 10.4" />
+        </svg>
         <h3>Guard</h3>
-        <p>The report is one committed file. CI fails when it goes stale.</p>
+        <p>The report is one committed file.<br />CI fails when it goes stale.</p>
       </div>
     </div>
   </div>
@@ -682,84 +910,84 @@
     <div class="sec-head">
       <h2>What it works with</h2>
       <p class="sec-sub">
-        An OpenAPI spec and a JavaScript or TypeScript test suite. Nothing to
-        annotate, no plugin, no runner integration.
+        Two things your repo already has. Nothing to annotate, no plugin, no
+        runner integration.
       </p>
     </div>
 
     <div class="support">
       <div class="sup panel">
-        <span class="micro">Your spec</span>
+        <div class="sup-head">
+          <span class="micro">01</span>
+          <h3>Your OpenAPI spec</h3>
+          <p class="sup-lede">
+            SpecProof reads every operation, along with every response status.
+          </p>
+        </div>
         <dl>
           <dt>OpenAPI 3.x and Swagger 2.0</dt>
           <dd>
-            Discovered on its own: the shallowest <code>openapi*</code> or
-            <code>swagger*</code> file in the repo. Pass <code>--spec</code> when
-            yours lives somewhere unusual.
+            SpecProof finds and uses the shallowest
+            <code>openapi*</code> or <code>swagger*</code> file in the repo.<br />
+            Pass <code>--spec</code> when yours lives somewhere unusual.
           </dd>
 
           <dt>JSON or YAML</dt>
           <dd>
-            Either format, read as-is. Both produce the same proof, so
-            converting between them never reads as drift.
+            Either format works, read exactly as it sits on disk.<br />
+            Both produce the same proof, so converting between them never reads
+            as drift.
           </dd>
         </dl>
       </div>
 
       <div class="sup panel">
-        <span class="micro">Your tests</span>
+        <div class="sup-head">
+          <span class="micro">02</span>
+          <h3>Your tests</h3>
+          <p class="sup-lede">
+            SpecProof reads the operations it exercises, along with the statuses it asserts.
+          </p>
+        </div>
         <dl>
           <dt>TypeScript and JavaScript</dt>
           <dd>
-            <code>.test.ts</code>, <code>.test.tsx</code>, <code>.test.js</code>,
-            <code>.test.jsx</code>, anywhere in the repo.
+            SpecProof reads <code>.test.ts</code>, <code>.test.tsx</code>,
+            <code>.test.js</code>, and <code>.test.jsx</code> files.<br />
+            They can live anywhere in the repo.
           </dd>
 
           <dt>Vitest, Jest, Bun test</dt>
           <dd>
-            Any runner with <code>describe</code> / <code>it</code> and
-            <code>expect</code>. The HTTP client makes no difference: SpecProof
-            reads the assertion, not the request.
+            Any runner that uses <code>describe</code> / <code>it</code> and
+            <code>expect</code> is supported.<br />
+            The HTTP client makes no difference, since SpecProof reads the
+            assertion rather than the request.
           </dd>
         </dl>
       </div>
-    </div>
 
-    <div class="code-shell panel">
-      <div class="bar">
-        <span class="micro">tests/tasks.test.ts</span>
-        <span class="micro">The two lines it reads</span>
-      </div>
-      <pre>describe(<span class="c2">"POST /tasks"</span>, () =&gt; {           <span class="cm">// the operation</span>
+      <div class="sup sup-code panel">
+        <div class="sup-head">
+          <span class="micro">03</span>
+          <h3>Where the two meet</h3>
+          <p class="sup-lede">
+            In a file like <code>tests/tasks.test.ts</code>, two lines do the
+            work.
+          </p>
+          <ol class="sup-list">
+            <li>The <code>describe</code> title that names the operation.</li>
+            <li>The status the test asserts.</li>
+          </ol>
+          <p class="sup-lede">Both are matched back to the spec.</p>
+        </div>
+        <pre>describe(<span class="c2">"POST /tasks"</span>, () =&gt; {           <span class="cm">// the operation</span>
   it(<span class="c1">"creates a task"</span>, async () =&gt; {
     expect(res.status).<span class="c2">toBe(201)</span>;         <span class="cm">// the response it proves</span>
   });
 });</pre>
-    </div>
-
-    <div class="rules">
-      <div class="rule panel">
-        <span class="micro">Methods</span>
-        <p>GET POST PUT<br />PATCH DELETE</p>
-      </div>
-      <div class="rule panel">
-        <span class="micro">Path params</span>
-        <p>{taskId} <span class="off">=</span> [taskId]<br />
-          <span class="off">=</span> :taskId</p>
-      </div>
-      <div class="rule panel">
-        <span class="micro">Assertions</span>
-        <p>.toBe(201)<br />.toEqual(201)</p>
       </div>
     </div>
-
-    <p class="note">
-      Anything outside that shape is simply not matched: a suite titled
-      <code>"creating tasks"</code>, or a check written
-      <code>assert.equal(statusCode, 201)</code>. Those responses are reported as
-      untested rather than guessed at, so a verified verdict always has a real
-      test behind it.
-    </p>
   </div>
 </section>
 
@@ -770,15 +998,76 @@
       <p class="sec-sub">Install as a dev dependency and run it from your repo.</p>
     </div>
 
-    <div class="code-shell panel">
-      <div class="bar">
-        <span class="micro">Terminal · npm, pnpm, yarn, or bun</span>
-        <button data-copy="npm install -D specproof
-npx specproof dev">Copy</button>
+    <div class="pm-tabs" role="tablist" aria-label="Package manager">
+      <button role="tab" data-pm="bun" id="pm-tab-bun" aria-controls="pm-install-bun pm-run-bun" aria-selected="false" tabindex="-1">bun</button>
+      <button role="tab" data-pm="npm" id="pm-tab-npm" aria-controls="pm-install-npm pm-run-npm" aria-selected="true">npm</button>
+      <button role="tab" data-pm="pnpm" id="pm-tab-pnpm" aria-controls="pm-install-pnpm pm-run-pnpm" aria-selected="false" tabindex="-1">pnpm</button>
+      <button role="tab" data-pm="yarn" id="pm-tab-yarn" aria-controls="pm-install-yarn pm-run-yarn" aria-selected="false" tabindex="-1">yarn</button>
+    </div>
+
+    <div class="start-steps">
+      <div class="code-shell panel">
+        <div class="bar">
+          <span class="micro">Install</span>
+        </div>
+        <div class="pm-panel" id="pm-install-bun" role="tabpanel" aria-labelledby="pm-tab-bun" hidden>
+          <div class="pm-cmd">
+            <code><span class="c1">$</span> bun add -d specproof</code>
+            <button data-copy="bun add -d specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-panel" id="pm-install-npm" role="tabpanel" aria-labelledby="pm-tab-npm">
+          <div class="pm-cmd">
+            <code><span class="c1">$</span> npm install -D specproof</code>
+            <button data-copy="npm install -D specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-panel" id="pm-install-pnpm" role="tabpanel" aria-labelledby="pm-tab-pnpm" hidden>
+          <div class="pm-cmd">
+            <code><span class="c1">$</span> pnpm add -D specproof</code>
+            <button data-copy="pnpm add -D specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-panel" id="pm-install-yarn" role="tabpanel" aria-labelledby="pm-tab-yarn" hidden>
+          <div class="pm-cmd">
+            <code><span class="c1">$</span> yarn add -D specproof</code>
+            <button data-copy="yarn add -D specproof">Copy</button>
+          </div>
+        </div>
       </div>
-      <pre><span class="c1">$</span> npm install -D specproof
-<span class="c1">$</span> npx specproof dev
-<span class="c2">→ localhost:3001</span></pre>
+
+      <div>
+        <div class="code-shell panel">
+          <div class="bar">
+            <span class="micro">Run</span>
+          </div>
+          <div class="pm-panel" id="pm-run-bun" role="tabpanel" aria-labelledby="pm-tab-bun" hidden>
+            <div class="pm-cmd">
+              <code><span class="c1">$</span> bunx specproof dev</code>
+              <button data-copy="bunx specproof dev">Copy</button>
+            </div>
+          </div>
+          <div class="pm-panel" id="pm-run-npm" role="tabpanel" aria-labelledby="pm-tab-npm">
+            <div class="pm-cmd">
+              <code><span class="c1">$</span> npx specproof dev</code>
+              <button data-copy="npx specproof dev">Copy</button>
+            </div>
+          </div>
+          <div class="pm-panel" id="pm-run-pnpm" role="tabpanel" aria-labelledby="pm-tab-pnpm" hidden>
+            <div class="pm-cmd">
+              <code><span class="c1">$</span> pnpm exec specproof dev</code>
+              <button data-copy="pnpm exec specproof dev">Copy</button>
+            </div>
+          </div>
+          <div class="pm-panel" id="pm-run-yarn" role="tabpanel" aria-labelledby="pm-tab-yarn" hidden>
+            <div class="pm-cmd">
+              <code><span class="c1">$</span> yarn specproof dev</code>
+              <button data-copy="yarn specproof dev">Copy</button>
+            </div>
+          </div>
+        </div>
+        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>. Pass <code>--port</code> to host it somewhere else.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -787,15 +1076,12 @@ npx specproof dev">Copy</button>
   <div class="wrap">
     <div class="sec-head">
       <h2>On CI</h2>
-      <p class="sec-sub">
-        Commit the report next to your code.<br />
-        <code>specproof generate --check</code> exits 1 when the report is out of date.
-      </p>
+      <p class="sec-sub">Add <code>.github/workflows/specproof.yml</code> and commit the report next to your code.</p>
     </div>
 
     <div class="code-shell panel">
       <div class="bar">
-        <span class="micro">.github/workflows/specproof.yml</span>
+        <span class="micro">CI</span>
         <button data-copy="name: specproof
 on: [pull_request]
 
@@ -823,12 +1109,62 @@ jobs:
   </div>
 </section>
 
+<section id="cta">
+  <div class="wrap">
+    <div class="cta-end">
+      <h2>Prove your spec</h2>
+      <p class="sec-sub">One dev dependency, no configuration.</p>
+      <div class="pm-tabs cta-tabs" role="tablist" aria-label="Package manager">
+        <button role="tab" data-pm="bun" id="cta-tab-bun" aria-controls="cta-cmd-bun" aria-selected="false" tabindex="-1">bun</button>
+        <button role="tab" data-pm="npm" id="cta-tab-npm" aria-controls="cta-cmd-npm" aria-selected="true">npm</button>
+        <button role="tab" data-pm="pnpm" id="cta-tab-pnpm" aria-controls="cta-cmd-pnpm" aria-selected="false" tabindex="-1">pnpm</button>
+        <button role="tab" data-pm="yarn" id="cta-tab-yarn" aria-controls="cta-cmd-yarn" aria-selected="false" tabindex="-1">yarn</button>
+      </div>
+
+      <div class="cta-row">
+        <div class="pm-chip" id="cta-cmd-bun" role="tabpanel" aria-labelledby="cta-tab-bun" hidden>
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>bun add -d specproof</span>
+            <button data-copy="bun add -d specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-chip" id="cta-cmd-npm" role="tabpanel" aria-labelledby="cta-tab-npm">
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>npm install -D specproof</span>
+            <button data-copy="npm install -D specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-chip" id="cta-cmd-pnpm" role="tabpanel" aria-labelledby="cta-tab-pnpm" hidden>
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>pnpm add -D specproof</span>
+            <button data-copy="pnpm add -D specproof">Copy</button>
+          </div>
+        </div>
+        <div class="pm-chip" id="cta-cmd-yarn" role="tabpanel" aria-labelledby="cta-tab-yarn" hidden>
+          <div class="copy-chip">
+            <span class="prompt">$</span>
+            <span>yarn add -D specproof</span>
+            <button data-copy="yarn add -D specproof">Copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="cta-row">
+        <a class="btn-gh" href="https://github.com/Durable-Quality/specproof" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
+        <a class="btn-gh" href="https://www.npmjs.com/package/specproof" target="_blank" rel="noopener noreferrer">View on npm ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <div class="foot-links">
       <span>MIT licensed</span>
-      <a href="https://github.com/Durable-Quality/specproof">github.com/Durable-Quality/specproof</a>
-      <span>SpecProof</span>
+      <span>v0.7.0</span>
+      <span class="built">Built by <a href="https://x.com/_DurableQuality" target="_blank" rel="noopener noreferrer">Durable Quality</a></span>
     </div>
   </div>
 </footer>
@@ -847,6 +1183,47 @@ jobs:
       });
     });
   });
+
+  // Package-manager tabs: one tab controls every pane it names in aria-controls
+  // (the install and run panes in Get started, the command chip in the closing
+  // CTA). Every pane is in the DOM, so the copy buttons work whichever one is
+  // showing, and no-JS still renders the npm panes.
+  (function () {
+    var groups = Array.prototype.slice.call(document.querySelectorAll('.pm-tabs')).map(function (group) {
+      return Array.prototype.slice.call(group.querySelectorAll('[role="tab"]'));
+    });
+    if (!groups.length) return;
+
+    // Both rows answer the same question, so picking a manager in one moves the
+    // other with it rather than leaving two different commands on the page.
+    function select(pm, focus) {
+      groups.forEach(function (tabs) {
+        tabs.forEach(function (tab) {
+          var on = tab.getAttribute('data-pm') === pm;
+          tab.setAttribute('aria-selected', String(on));
+          tab.tabIndex = on ? 0 : -1;
+          tab.getAttribute('aria-controls').split(/\s+/).forEach(function (id) {
+            var pane = document.getElementById(id);
+            if (pane) pane.hidden = !on;
+          });
+        });
+      });
+      if (focus) focus.focus();
+    }
+
+    groups.forEach(function (tabs) {
+      tabs.forEach(function (tab, i) {
+        tab.addEventListener('click', function () { select(tab.getAttribute('data-pm')); });
+        tab.addEventListener('keydown', function (event) {
+          var step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+          if (!step) return;
+          event.preventDefault();
+          var next = tabs[(i + step + tabs.length) % tabs.length];
+          select(next.getAttribute('data-pm'), next);
+        });
+      });
+    });
+  })();
 
   // All-time downloads + a 30-day sparkline, from npm's public downloads API.
   // Any failure leaves the whole stat hidden rather than showing a broken number.
