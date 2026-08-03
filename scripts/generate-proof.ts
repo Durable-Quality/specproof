@@ -10,8 +10,9 @@
 // override with --out / SPECPROOF_OUT to write the proof into the audited
 // repo instead (e.g. to commit it there). --check verifies the output file is
 // up to date without writing — the CI drift guard. When no target spec is
-// found, the existing artifact is left untouched so the app still builds and
-// renders.
+// found, an empty proof is written so the app still builds and renders its
+// empty state — unless that would replace a proof with operations in it, which
+// takes --allow-empty (dev/build pass it; see the guard in runGenerate).
 
 import fs from 'fs';
 import path from 'path';
@@ -56,12 +57,30 @@ export function buildProof(): Record<string, unknown> {
   return buildCoverageReport() as unknown as Record<string, unknown>;
 }
 
+/** A proof with nothing in it — what a repo with no spec, or a spec with no
+ *  operations yet, compiles to. The app needs the file to exist in order to
+ *  build, and renders it as an empty state. */
+export function emptyProof(hasSpec: boolean): CoverageReport {
+  return {
+    repoName: resolveRepoName(TARGET_REPO_ROOT),
+    hasSpec,
+    tags: [],
+    operationCount: 0,
+    coveredCount: 0,
+    totalCount: 0,
+    untestedOperations: 0,
+  };
+}
+
 export interface GenerateOptions {
   /** Where to write (or, with check, what to verify). Resolved against cwd.
    *  Defaults to SPECPROOF_OUT, then the app's checked-in artifact. */
   out?: string;
   /** Verify the file at `out` matches a fresh proof instead of writing. */
   check?: boolean;
+  /** Write a proof with no operations even when the one being replaced had
+   *  some — the deliberate override for the regression guard below. */
+  allowEmpty?: boolean;
 }
 
 /** Parses --out <path> / --check from a generate argv slice. Throws on
@@ -72,6 +91,8 @@ export function parseGenerateArgs(argv: string[]): GenerateOptions {
     const arg = argv[i];
     if (arg === '--check') {
       options.check = true;
+    } else if (arg === '--allow-empty') {
+      options.allowEmpty = true;
     } else if (arg === '--out') {
       const value = argv[++i];
       if (!value) throw new Error('--out requires a path');
@@ -81,6 +102,38 @@ export function parseGenerateArgs(argv: string[]): GenerateOptions {
     }
   }
   return options;
+}
+
+/**
+ * How many operations the proof already at `outPath` claims, or 0 when there
+ * is no readable proof there yet. Unreadable counts as 0 deliberately: a
+ * corrupt or hand-edited artifact is not evidence worth protecting, and
+ * treating it as such would wedge the generator with no way forward.
+ */
+function existingOperationCount(outPath: string): number {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(outPath, 'utf8')) as { operationCount?: unknown };
+    return typeof parsed.operationCount === 'number' ? parsed.operationCount : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Whether an existing proof was written by a SpecProof older than the fields
+ * this version emits. Keyed on `hasSpec`, added in 0.8.0 and always present
+ * since — a proof that parses but lacks it can only have come from an earlier
+ * release, which makes the resulting --check failure an upgrade artifact
+ * rather than real drift.
+ */
+function predatesCurrentSchema(existing: string | null): boolean {
+  if (existing === null) return false;
+  try {
+    const parsed = JSON.parse(existing) as Record<string, unknown>;
+    return typeof parsed === 'object' && parsed !== null && !('hasSpec' in parsed);
+  } catch {
+    return false; // unparseable is corruption, not an old schema
+  }
 }
 
 /** A path shortened to a cwd-relative one when that is actually shorter. */
@@ -139,23 +192,30 @@ export function runGenerate(options: GenerateOptions = {}): number {
       console.error(`generate-proof: ${hint}`);
       return 1;
     }
-    if (!fs.existsSync(outPath)) {
-      // The artifact is not published with the package, so a fresh install has
-      // no proof at all. Write an empty one: the app needs the file to build,
-      // and an empty report renders the "no API definition" state.
-      const empty: CoverageReport = {
-        repoName: resolveRepoName(TARGET_REPO_ROOT),
-        tags: [],
-        operationCount: 0,
-        coveredCount: 0,
-        totalCount: 0,
-        untestedOperations: 0,
-      };
-      fs.writeFileSync(outPath, JSON.stringify(empty, null, 2) + '\n');
-      console.warn(`generate-proof: ${hint}; wrote an empty proof to ${outLabel}`);
+    // Same regression guard as the zero-operations case below, for the same
+    // reason: an empty proof is only worth refusing when it would destroy one
+    // that had something in it. Keeping the old proof unconditionally is worse
+    // than useless when the artifact is a cache of whichever repo was last
+    // audited — `specproof dev` on a repo whose API isn't written yet would
+    // audit this repo while displaying the last one's coverage, which is the
+    // single most misleading thing this tool can do. So dev/build's
+    // --allow-empty clears it, and only a proof with operations behind it (a
+    // consumer's committed --out, where discovery breaking is the likelier
+    // cause than the spec really being gone) is left alone.
+    const previous = existingOperationCount(outPath);
+    if (previous > 0 && !options.allowEmpty) {
+      console.warn(
+        `generate-proof: ${hint}; keeping the existing ${outLabel} (${previous} operations). ` +
+          'Pass --allow-empty to replace it with an empty proof.'
+      );
       return 0;
     }
-    console.warn(`generate-proof: ${hint}; keeping the existing proof`);
+    // Below the guard: either there is nothing to lose, or the caller said to
+    // overwrite. The app needs the file to exist in order to build, and an
+    // empty report renders the "no API definition" state. (A fresh install
+    // lands here too — the artifact is not published with the package.)
+    fs.writeFileSync(outPath, JSON.stringify(emptyProof(false), null, 2) + '\n');
+    console.warn(`generate-proof: ${hint}; wrote an empty proof to ${outLabel}`);
     return 0;
   }
 
@@ -177,20 +237,42 @@ export function runGenerate(options: GenerateOptions = {}): number {
   }
 
   const operationCount = (proof.operationCount as number) ?? 0;
-  if (operationCount === 0) {
-    console.error(
-      `generate-proof: no operations found in ${specLabel} — refusing to write an empty proof`
+  if (operationCount === 0 && !options.allowEmpty) {
+    // An empty proof is only dangerous when it destroys one that had something
+    // in it — a spec truncated mid-edit, or discovery that latched onto the
+    // wrong file. With nothing to lose, zero operations is the ordinary state
+    // of a spec someone has just started, and refusing to write it would stop
+    // `specproof dev` from ever opening on a scaffold.
+    const previous = existingOperationCount(outPath);
+    if (previous > 0) {
+      console.error(
+        `generate-proof: ${specLabel} documents no operations, but ${outLabel} has ${previous}. ` +
+          'Refusing to overwrite a proof with an empty one. Check the spec is complete and that ' +
+          'the right one was discovered, or pass --allow-empty if this is deliberate.'
+      );
+      return 1;
+    }
+    console.warn(
+      `generate-proof: ${specLabel} documents no operations yet: ` +
+        'the audit view will render its empty state until you add some'
     );
-    return 1;
   }
   const serialized = JSON.stringify(proof, null, 2) + '\n';
 
   if (options.check) {
     const existing = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : null;
     if (existing !== serialized) {
+      // "Stale relative to the spec/tests" sends people to `git log` looking
+      // for a change that isn't there when the real cause is an upgrade: a
+      // proof written by an older SpecProof differs by the fields this version
+      // added, not by anything the repo did. Name that cause when it applies.
+      const cause = predatesCurrentSchema(existing)
+        ? 'was generated by an older version of SpecProof and is missing fields this one ' +
+          'records. Your spec and tests have not drifted'
+        : 'is stale relative to the spec/tests';
       console.error(
-        `generate-proof: ${outLabel} is stale relative to the spec/tests — ` +
-          'regenerate it (specproof generate) and commit the result'
+        `generate-proof: ${outLabel} ${cause}. ` +
+          'Regenerate it (specproof generate) and commit the result.'
       );
       return 1;
     }

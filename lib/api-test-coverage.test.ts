@@ -430,9 +430,32 @@ describe('loadSpec', () => {
   });
 
   it('rejects a document that is not an object', () => {
-    const root = makeRepo({ 'openapi.yaml': '', 'swagger.yaml': '- just\n- a list\n' });
+    const root = makeRepo({ 'openapi.yaml': '- just\n- a list\n', 'swagger.yaml': '"a string"\n' });
     expect(() => loadSpec(path.join(root, 'openapi.yaml'))).toThrow(/not an OpenAPI document/);
     expect(() => loadSpec(path.join(root, 'swagger.yaml'))).toThrow(/not an OpenAPI document/);
+  });
+
+  it('reads an empty spec as a scaffold rather than a failure, in either format', () => {
+    // `touch openapi.yaml` is step one of writing an API. Empty JSON is a
+    // parse error and empty YAML is the null document, but the intent is the
+    // same, so neither may depend on the extension to be accepted.
+    const root = makeRepo({
+      'openapi.yaml': '',
+      'openapi.json': '',
+      'swagger.yaml': '   \n\n',
+      // Comment-only YAML parses to null — the same scaffold state.
+      'swagger.yml': '# paths go here\n',
+    });
+    for (const file of ['openapi.yaml', 'openapi.json', 'swagger.yaml', 'swagger.yml']) {
+      expect(loadSpec(path.join(root, file))).toEqual({});
+    }
+  });
+
+  it('still rejects a spec that is malformed rather than empty', () => {
+    // The scaffold allowance must not swallow a truncated file — that is the
+    // case the parse error exists to catch.
+    const root = makeRepo({ 'openapi.yaml': 'paths: { /widgets:\n' });
+    expect(() => loadSpec(path.join(root, 'openapi.yaml'))).toThrow(/could not parse/);
   });
 
   it('rejects a paths value that is not an object', () => {

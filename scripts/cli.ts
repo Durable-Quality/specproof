@@ -12,7 +12,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 // This file runs both as source (scripts/cli.ts, via `bun run dev` in this
@@ -52,7 +52,10 @@ Options:
                   bundled artifact; env SPECPROOF_OUT)
   --check         generate only: verify the proof at --out is up to date instead
                   of writing — exits 1 on drift (the CI guard)
+  --allow-empty   generate only: write a proof with no operations even when the
+                  one being replaced had some
   --port <port>   dev/start only: port to serve on (default: 3001)
+  --no-watch      dev only: don't rebuild the proof when the spec or tests change
 `;
 
 function fail(message: string): never {
@@ -63,6 +66,7 @@ function fail(message: string): never {
 const [command, ...rest] = process.argv.slice(2);
 
 let port = '3001';
+let watch = true;
 const generateArgs: string[] = [];
 for (let i = 0; i < rest.length; i++) {
   const arg = rest[i];
@@ -76,7 +80,10 @@ for (let i = 0; i < rest.length; i++) {
   if (arg === '--repo') process.env.SPECPROOF_REPO = value();
   else if (arg === '--spec') process.env.SPECPROOF_SPEC = value();
   else if (arg === '--port') port = value();
-  else if (arg === '--out' || arg === '--check') {
+  else if (arg === '--no-watch') {
+    if (command !== 'dev') fail('--no-watch only applies to the dev command');
+    watch = false;
+  } else if (arg === '--out' || arg === '--check' || arg === '--allow-empty') {
     if (command !== 'generate') fail(`${arg} only applies to the generate command`);
     generateArgs.push(arg);
     if (arg === '--out') generateArgs.push(value());
@@ -91,16 +98,84 @@ async function generate(argv: string[]): Promise<number> {
   return runGenerate(parseGenerateArgs(argv));
 }
 
-function nextCli(...args: string[]): number {
+// Resolve Next's bin relative to this package so the CLI works no matter
+// where the consumer's package manager hoisted the dependency tree.
+function nextBin(): string {
   const require = createRequire(import.meta.url);
-  // Resolve Next's bin relative to this package so the CLI works no matter
-  // where the consumer's package manager hoisted the dependency tree.
-  const nextBin = require.resolve('next/dist/bin/next', { paths: [appRoot] });
-  const result = spawnSync(process.execPath, [nextBin, ...args], {
+  return require.resolve('next/dist/bin/next', { paths: [appRoot] });
+}
+
+function nextCli(...args: string[]): number {
+  const result = spawnSync(process.execPath, [nextBin(), ...args], {
     stdio: 'inherit',
     env: process.env,
   });
   return result.status ?? 1;
+}
+
+/**
+ * Same, but without blocking the event loop — which `dev` requires, because
+ * spawnSync would starve the watcher below and no file change would ever be
+ * noticed while the server ran.
+ */
+function nextCliAsync(...args: string[]): Promise<number> {
+  const child = spawn(process.execPath, [nextBin(), ...args], {
+    stdio: 'inherit',
+    env: process.env,
+  });
+  // Ctrl-C should stop the server, not orphan it behind an exiting CLI.
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(signal, () => child.kill(signal));
+  }
+  return new Promise((resolve) => child.on('exit', (code) => resolve(code ?? 1)));
+}
+
+const TEST_FILE_RE = /\.test\.(ts|tsx|js)$/;
+const IGNORED_RE = /(^|[\\/])(node_modules|\.next|\.git|dist)([\\/]|$)/;
+
+/**
+ * Rebuild the proof whenever the audited repo's spec or tests change. The app
+ * imports the generated artifact, so rewriting it is enough — Next's HMR
+ * refreshes the audit view from there, and adding a path to the spec shows up
+ * as a verdict without a restart.
+ */
+async function watchSources(onChange: () => void): Promise<void> {
+  // Dynamic, for the same reason generate() is: a static import would freeze
+  // the analyzer's view of SPECPROOF_REPO before the flags above parsed.
+  const { looksLikeSpecFile } = await import('../lib/api-test-coverage.js');
+
+  const root = path.resolve(process.env.SPECPROOF_REPO ?? process.cwd());
+  const explicitSpec = process.env.SPECPROOF_SPEC
+    ? path.resolve(root, process.env.SPECPROOF_SPEC)
+    : null;
+
+  // Matched by name rather than against the currently resolved spec, because
+  // in the case this exists for the spec often doesn't exist yet: `specproof
+  // dev` on an empty repo, then `touch openapi.yaml`, has to start watching a
+  // file that wasn't there at startup.
+  const isSource = (file: string): boolean => {
+    if (IGNORED_RE.test(file)) return false;
+    if (explicitSpec && path.resolve(root, file) === explicitSpec) return true;
+    // Deliberately excludes the proof itself: when a repo audits itself, the
+    // generator writes the artifact back into the watched tree, and treating
+    // that as a source change would loop forever.
+    return looksLikeSpecFile(path.basename(file)) || TEST_FILE_RE.test(file);
+  };
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    fs.watch(root, { recursive: true }, (_event, file) => {
+      if (!file || !isSource(String(file))) return;
+      // Editors save in bursts (write, rename, chmod); coalesce them.
+      clearTimeout(timer);
+      timer = setTimeout(onChange, 150);
+    });
+  } catch {
+    console.warn(
+      'specproof: recursive file watching is unavailable on this platform. ' +
+        'Re-run specproof dev to pick up spec changes, or pass --no-watch to silence this.'
+    );
+  }
 }
 
 async function main(): Promise<void> {
@@ -108,17 +183,50 @@ async function main(): Promise<void> {
     case 'generate':
       process.exit(await generate(generateArgs));
       break;
-    case 'dev':
+    // dev/build always refresh the bundled artifact — it is what the app
+    // renders. A consumer's committed copy (--out) is generate's concern.
+    //
+    // --allow-empty because the bundled artifact is a cache of whichever repo
+    // was last audited, not a durable record of this one: the empty-proof guard
+    // would otherwise compare operation counts across two unrelated repos and
+    // refuse, leaving the previous repo's coverage on screen while claiming to
+    // audit a scaffold. The guard still applies to an explicit --out.
+    case 'dev': {
+      if ((await generate(['--allow-empty'])) !== 0) {
+        // A dev server that refuses to start on an unreadable spec is the
+        // wrong trade: half-written YAML is the normal state of a file you
+        // are editing, and with the watcher running the view heals on the
+        // next save. Only guarantee the app has an artifact to import, so
+        // Next can boot at all.
+        const { emptyProof, GENERATED_PROOF_PATH } = await import('./generate-proof.js');
+        if (!fs.existsSync(GENERATED_PROOF_PATH)) {
+          fs.writeFileSync(
+            GENERATED_PROOF_PATH,
+            JSON.stringify(emptyProof(false), null, 2) + '\n'
+          );
+        }
+        console.warn('specproof: starting anyway. The audit view will refresh once the spec parses.');
+      }
+
+      if (watch) {
+        let running = false;
+        await watchSources(() => {
+          if (running) return; // a rebuild is already in flight; its own run picks up the latest
+          running = true;
+          void generate(['--allow-empty']).finally(() => {
+            running = false;
+          });
+        });
+      }
+
+      process.exit(await nextCliAsync('dev', appRoot, '--port', port));
+      break;
+    }
     case 'build': {
-      // dev/build always refresh the bundled artifact — it is what the app
-      // renders. A consumer's committed copy (--out) is generate's concern.
-      const generated = await generate([]);
+      // Unlike dev, a spec that won't compile is a hard build failure.
+      const generated = await generate(['--allow-empty']);
       if (generated !== 0) process.exit(generated);
-      process.exit(
-        command === 'dev'
-          ? nextCli('dev', appRoot, '--port', port)
-          : nextCli('build', appRoot)
-      );
+      process.exit(nextCli('build', appRoot));
       break;
     }
     case 'start':
