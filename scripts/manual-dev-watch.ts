@@ -155,9 +155,15 @@ async function serve(): Promise<never> {
     [path.join(repoRoot, 'scripts', 'cli.ts'), 'dev', '--repo', scratchRoot, '--port', port],
     { stdio: 'inherit', cwd: repoRoot }
   );
-  // Ctrl-C reaches the child through the terminal's process group; swallow it
-  // here so this wrapper survives long enough to restore the artifact.
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {});
+  // Forward, don't swallow. A handler that does nothing keeps this wrapper
+  // alive long enough to restore the artifact when Ctrl-C hits the whole
+  // process group (the child gets its own copy of the signal that way) — but
+  // it also makes a signal sent to this process alone a no-op, leaving a dev
+  // server running whose watcher then rewrites the proof behind the restore.
+  // Passing it on covers both.
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(signal, () => child.kill(signal));
+  }
 
   const code: number = await new Promise((resolve) =>
     child.on('exit', (exitCode) => resolve(exitCode ?? 1))
