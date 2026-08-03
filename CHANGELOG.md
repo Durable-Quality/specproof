@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-03
+
+### Added
+- Specs can now be developed alongside SpecProof from nothing: an empty, comment-only, or path-less OpenAPI file compiles to an empty proof and renders instead of failing, so `specproof dev` opens on a repo whose API is still being written.
+- `specproof dev` watches the audited repo's spec and test files and rebuilds the proof as they change, so adding an operation shows up in the report without a restart. Disable with `--no-watch`.
+- `specproof generate --allow-empty` writes a proof with no operations even when the one it replaces had some.
+- The report distinguishes "no API definition found" from "a spec exists but documents no operations yet", and the second points at the next edit to make.
+
+### Changed
+- The empty-proof guard is now regression-aware rather than absolute: writing a proof with no operations is refused only when it would overwrite one that had some. That case keeps its hard failure, and names both counts in the message.
+- `specproof dev` no longer refuses to start when the spec doesn't parse. It warns, serves the last good proof, and heals on the next save, since half-written YAML is the normal state of a file being edited. `specproof build` still fails hard.
+
+### Upgrading
+- Proofs gain a `hasSpec` field, so a proof committed by 0.7.x is one field behind. Run `specproof generate` once and commit the result. `specproof generate --check` detects this case and says the proof came from an older SpecProof rather than reporting it as spec drift, so CI points at the upgrade instead of sending you looking for a change that didn't happen. Plain `specproof generate` just rewrites the file.
+
 ## [0.7.2] - 2026-08-01
 
 ### Changed

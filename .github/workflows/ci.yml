@@ -295,6 +295,68 @@ jobs:
           mv ./api/openapi.json.bak ./api/openapi.json
           exit "$fail"
 
+      - name: ✅ A barebones spec scaffolds instead of failing
+        # The develop-alongside loop: start from `touch openapi.yaml` and add
+        # operations as you go. Every step here has to stay renderable, because
+        # a hard failure means `specproof dev` can never open on a repo whose
+        # API is still being written.
+        working-directory: /tmp/consumer
+        run: |
+          sp() {
+            case "${{ matrix.pm }}" in
+              npm)  npx --no-install specproof "$@" ;;
+              pnpm) pnpm exec specproof "$@" ;;
+              yarn) yarn specproof "$@" ;;
+              bun)  bunx --no-install specproof "$@" ;;
+            esac
+          }
+
+          mv ./api/openapi.json ./api/openapi.json.bak
+          : > ./api/openapi.yaml
+
+          sp generate --out ./proof-scaffold.json
+          node -e "
+            const p = require('./proof-scaffold.json');
+            if (p.operationCount !== 0) { console.error('expected an empty proof'); process.exit(1); }
+            if (p.hasSpec !== true) { console.error('a scaffold spec must record hasSpec'); process.exit(1); }
+          "
+
+          # A committed empty proof is a legitimate CI state, not perpetual drift.
+          sp generate --out ./proof-scaffold.json --check
+
+          # The first operation lands: --check catches it, regenerating heals it.
+          cat > ./api/openapi.yaml <<'YAML'
+          openapi: 3.0.0
+          paths:
+            /tasks:
+              get:
+                responses:
+                  "200": { description: OK }
+          YAML
+          if sp generate --out ./proof-scaffold.json --check; then
+            echo "::error::--check should fail once the scaffold gained an operation"
+            exit 1
+          fi
+          sp generate --out ./proof-scaffold.json
+          sp generate --out ./proof-scaffold.json --check
+
+          # Emptying a spec that already had operations stays a hard failure:
+          # that is truncation, not scaffolding.
+          before=$(cat ./proof-scaffold.json)
+          : > ./api/openapi.yaml
+          if sp generate --out ./proof-scaffold.json; then
+            echo "::error::emptying a spec whose proof has operations must fail"
+            exit 1
+          fi
+          if [ "$before" != "$(cat ./proof-scaffold.json)" ]; then
+            echo "::error::the refused run must not modify the proof"
+            exit 1
+          fi
+          sp generate --out ./proof-scaffold.json --allow-empty
+
+          rm ./api/openapi.yaml ./proof-scaffold.json
+          mv ./api/openapi.json.bak ./api/openapi.json
+
       - name: ✅ A YAML spec audits identically to its JSON conversion
         # The format a spec is serialized in must be invisible to the proof:
         # a repo that stops converting openapi.yaml to JSON (or starts) should
