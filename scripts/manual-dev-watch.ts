@@ -32,7 +32,10 @@ const scratchRoot = path.join(os.tmpdir(), 'specproof-manual-target');
 const scratchSpec = path.join(scratchRoot, 'openapi.yaml');
 const scratchTest = path.join(scratchRoot, 'tests', 'widgets.test.ts');
 const bundledProof = path.join(repoRoot, 'app', 'proof.generated.json');
-const port = process.env.PORT ?? '3001';
+// 3002, not the 3001 `bun run dev` uses: the walkthrough is worthless if the
+// tab you are watching is served by an ordinary dev server auditing this repo,
+// and a port clash between the two is the easiest way to end up there.
+const port = process.env.PORT ?? '3002';
 
 // One operation with two documented statuses, so the finished walkthrough shows
 // both verdict states at once: 200 proven by the test below, 500 still untested.

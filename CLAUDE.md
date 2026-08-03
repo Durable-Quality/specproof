@@ -68,7 +68,7 @@ bun run lint:ts          # tsc --noEmit only
 `scripts/manual-dev-watch.ts` drives the one behavior the automated suites can't assert, because it only exists in a running dev server: `specproof dev` on a repo with no spec, then `touch openapi.yaml` and add a path, with the audit view moving from the empty state to a verdict and no restart in between. Two terminals:
 
 ```bash
-bun run manual:dev       # scratch target repo with no spec + specproof dev on :3001
+bun run manual:dev       # scratch target repo with no spec + specproof dev on :3002 (PORT overrides)
 # then, in a second terminal:
 bun run manual:spec      # step 1: touch openapi.yaml    -> hasSpec flips true, paths: hint
 bun run manual:path      # step 2: document GET /widgets -> a verdict appears (200, 500 untested)
