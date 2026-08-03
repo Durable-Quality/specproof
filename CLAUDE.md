@@ -14,7 +14,7 @@ This repo does not contain a real API or its tests — it audits a target repo f
    - The OpenAPI spec — auto-discovered as the shallowest `openapi*` / `swagger*` file in the tree (`.json`, `.yaml`, or `.yml`), or set explicitly with `SPECPROOF_SPEC` (relative to the repo root). JSON and YAML are parsed into the same document by `loadSpec`, so a spec converted between the two formats yields a byte-identical proof and never trips the drift guard; `--spec` accepts any extension and sniffs the format when it isn't one of those three. Equal-depth candidates are broken alphabetically, which means an `openapi.json` beside an `openapi.yaml` keeps winning; the generator warns whenever a tie had to be broken, since one of the two files is usually a stale conversion of the other.
    - The repo's `*.test.ts` / `*.test.tsx` / `*.test.js` files — parsed via regex for `describe("METHOD /path")` blocks and `.status).toBe(NNN)` / `.status).toEqual(NNN)` assertions.
 2. **Analyzer** (`lib/api-test-coverage.ts`): joins the two sources into a `CoverageReport` (tags → operations → statuses, each status with assertion counts and extracted `it()` snippets). Operations are joined on the describe title's method + path; `{param}`, `[param]`, and `:param` segments are treated as equivalent. When several test files describe the same operation, the one with the most `it()` blocks wins.
-3. **Generator** (`scripts/generate-proof.ts`): calls the analyzer, writes the result to `app/proof.generated.json`. This is checked in, deterministic, and regenerated automatically before `dev`/`build`. When no target spec is found it leaves an existing artifact untouched (exit 0) — or, if the artifact is missing entirely (a fresh install; it isn't published), writes an empty proof so the app always builds and renders its empty state.
+3. **Generator** (`scripts/generate-proof.ts`): calls the analyzer, writes the result to `app/proof.generated.json`. This is checked in, deterministic, and regenerated automatically before `dev`/`build`. When no target spec is found it writes an empty proof (exit 0) so the app always builds and renders its empty state — unless that would replace a proof that already had operations, which takes `--allow-empty`; see "Barebones specs" below.
 4. **Consumer** (`app/page.tsx` → `components/CoverageProof.tsx`): renders the checked-in artifact only. No target checkout is needed to build or deploy the app itself. An empty proof renders an empty-state hint, branching on the report's `hasSpec` flag: `false` means no API definition was found at all and shows the `--repo` / `--spec` hints, `true` means a spec exists but documents no operations yet and shows the `paths:` stanza to add next.
 5. **Drift guard** (`app/proof-contract.test.ts`): fails when the artifact is stale relative to the spec/tests, when the proof's audited operations don't exactly match the spec's operations, or when a quoted snippet no longer points at a real `it()`/`test()` line. This suite self-skips (via `describe.skipIf`) when no target spec is resolvable — in this repo one always is (the example fixture), so `bun run test:unit` always exercises the full analyzer here.
 
@@ -32,7 +32,9 @@ SpecProof is expected to be pointed at a repo whose API is still being written, 
 
 The zero-operations guard is **regression-aware, not absolute**: an empty proof is refused only when it would overwrite one that already had operations (truncation, or discovery latching onto the wrong file), and `--allow-empty` overrides that deliberately. With nothing to lose, zero operations is just the ordinary state of a new spec, so the generator writes it and exits 0. This is what makes a committed empty proof a legitimate `--check` state instead of perpetual drift.
 
-`dev` and `build` pass `--allow-empty` internally when refreshing the bundled artifact, because that file is a cache of whichever repo was last audited rather than a durable record of this one. Without it the guard compares operation counts across two unrelated repos and leaves the previous repo's coverage on screen while claiming to audit a scaffold. The guard still applies to an explicit `--out`, which is the consumer's committed proof.
+**No spec at all takes the same path**, and for the same reason: the generator writes an empty `hasSpec: false` proof rather than keeping whatever was already there, and only refuses when the proof being replaced has operations in it (then `--allow-empty` overrides, as above). It used to keep any existing artifact unconditionally, which meant `specproof dev --repo <repo-with-no-spec>` opened on the *previously audited* repo's coverage, relabeled with the new repo's name — the same cross-repo confusion the zero-operations guard was made regression-aware to avoid, reached through the other branch. A proof that has operations is still left alone without the flag, because a spec that suddenly can't be found is more often broken discovery than a deleted API. `--check` is unaffected: with no spec it remains a hard failure, since CI asked for a verification that can't be performed.
+
+`dev` and `build` pass `--allow-empty` internally when refreshing the bundled artifact, because that file is a cache of whichever repo was last audited rather than a durable record of this one. Without it the guards compare operation counts across two unrelated repos and leave the previous repo's coverage on screen while claiming to audit a scaffold. They still apply to an explicit `--out`, which is the consumer's committed proof.
 
 `specproof dev` also **watches** the audited repo (`watchSources` in `scripts/cli.ts`): a recursive `fs.watch` filtered to spec-named files and `*.test.*`, debounced 150ms, regenerating the bundled artifact so Next's HMR refreshes the view. Notes:
 - The filter deliberately excludes the proof itself, or a repo auditing itself (this one) would loop forever.
@@ -60,6 +62,25 @@ bun run lint             # eslint + tsc --noEmit
 bun run lint:es          # eslint only
 bun run lint:ts          # tsc --noEmit only
 ```
+
+### Manual harness for the develop-alongside loop
+
+`scripts/manual-dev-watch.ts` drives the one behavior the automated suites can't assert, because it only exists in a running dev server: `specproof dev` on a repo with no spec, then `touch openapi.yaml` and add a path, with the audit view moving from the empty state to a verdict and no restart in between. Two terminals:
+
+```bash
+bun run manual:dev       # scratch target repo with no spec + specproof dev on :3001
+# then, in a second terminal:
+bun run manual:spec      # step 1: touch openapi.yaml    -> hasSpec flips true, paths: hint
+bun run manual:path      # step 2: document GET /widgets -> a verdict appears (200, 500 untested)
+bun run manual:test      # step 3: add a passing test    -> 200 flips to proven with its snippet
+bun run manual:status    # what the scratch repo and the proof currently hold
+bun run manual:reset     # delete the scratch repo
+```
+
+Two things it does deliberately, both of which the walkthrough is wrong without:
+
+- The scratch repo lives in the OS temp dir, never inside this checkout. A spec file here would tie with (or beat) `example/api/openapi.json` on discovery depth and silently change what this repo's own tests audit.
+- `manual:dev` snapshots `app/proof.generated.json` and restores it on exit. The run itself is supposed to overwrite it: replacing this repo's committed TaskFlow proof with the scratch repo's empty one is step 0 of the walkthrough. Restoring afterwards is what keeps the contract tests from failing on a scratch repo's coverage. If the process is killed hard enough to skip the restore, `bun run generate:proof` puts it back.
 
 To run a single test file: `bunx vitest run app/proof-contract.test.ts` (contract tests), `bunx vitest run lib/api-test-coverage.test.ts` (analyzer unit tests), or `bunx vitest run scripts/generate-proof.test.ts` (generator + drift-guard tests: YAML/JSON equivalence, `--check` behavior on drift, malformed and empty specs, discovery ambiguity). The generator tests always pass an explicit `out` into a temp repo, and re-import the generator through `vi.resetModules()` per run because `SPECPROOF_REPO`/`SPECPROOF_SPEC` are read at module load. The unit tests' inline fixtures deliberately use operations that don't exist in the example spec (`/widgets`, `/gadgets`) — the analyzer parses this repo's own `*.test.ts` files as raw text when auditing `example/`, and colliding paths would pollute the generated proof.
 

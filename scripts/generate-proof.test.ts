@@ -453,3 +453,65 @@ describe('spec discovery', () => {
     expect(check.errors).toMatch(/no OpenAPI spec found/);
   });
 });
+
+describe('no spec, with a proof already on disk', () => {
+  // The artifact dev/build render is a cache of whichever repo was last
+  // audited. Pointing it at a repo with no spec must not leave the previous
+  // repo's coverage on screen under a new repo's name.
+  const specless = { 'readme.md': 'no spec here' };
+
+  it("replaces the previous repo's proof with an empty one under --allow-empty", async () => {
+    const audited = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(audited);
+    expect((await runGenerateIn(audited, { out })).code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBeGreaterThan(0);
+
+    // What `specproof dev --repo <scaffold>` does with that same artifact.
+    const run = await runGenerateIn(makeRepo(specless), { out, allowEmpty: true });
+
+    expect(run.code).toBe(0);
+    expect(run.output).toMatch(/wrote an empty proof/);
+    const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(proof.operationCount).toBe(0);
+    expect(proof.hasSpec).toBe(false);
+    expect(proof.tags).toEqual([]);
+  });
+
+  it('keeps a proof that has operations when --allow-empty is not passed', async () => {
+    const audited = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(audited);
+    expect((await runGenerateIn(audited, { out })).code).toBe(0);
+    const committed = fs.readFileSync(out, 'utf8');
+
+    // A consumer's committed proof, where a spec that suddenly can't be found
+    // is likelier to be broken discovery than a deleted API.
+    const run = await runGenerateIn(makeRepo(specless), { out });
+
+    expect(run.code).toBe(0);
+    expect(run.output).toMatch(/keeping the existing/);
+    expect(run.output).toMatch(/--allow-empty/);
+    expect(fs.readFileSync(out, 'utf8')).toBe(committed);
+  });
+
+  it('overwrites an empty proof without needing --allow-empty', async () => {
+    // Nothing to lose: the repo name and hasSpec still have to track the repo
+    // actually being audited, or the empty state names the wrong one.
+    const root = makeRepo(specless);
+    const out = outIn(root);
+    fs.writeFileSync(
+      out,
+      JSON.stringify(
+        { repoName: 'some-other-repo', hasSpec: true, tags: [], operationCount: 0 },
+        null,
+        2
+      ) + '\n'
+    );
+
+    const run = await runGenerateIn(root, { out });
+
+    expect(run.code).toBe(0);
+    const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(proof.repoName).toBe(path.basename(root));
+    expect(proof.hasSpec).toBe(false);
+  });
+});

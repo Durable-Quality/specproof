@@ -248,7 +248,7 @@ jobs:
             bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
           esac
 
-      - name: 🚫 `--check` hard-fails with no spec (plain generate soft-skips)
+      - name: "🚫 No spec: `--check` hard-fails, generate soft-skips, no stale proof shows"
         working-directory: /tmp/consumer
         run: |
           mv ./api/openapi.json ./api/openapi.json.bak
@@ -291,6 +291,51 @@ jobs:
             echo "::error::--check's no-spec failure message is missing/changed"
             fail=1
           fi
+
+          sp() {
+            case "${{ matrix.pm }}" in
+              npm)  npx --no-install specproof "$@" ;;
+              pnpm) pnpm exec specproof "$@" ;;
+              yarn) yarn specproof "$@" ;;
+              bun)  bunx --no-install specproof "$@" ;;
+            esac
+          }
+
+          # A committed proof with operations in it survives a run that finds no
+          # spec: that is far more often a moved or renamed spec than an API
+          # someone deleted.
+          cp ./proof.json ./proof-lastrepo.json
+          set +e
+          out=$(sp generate --out ./proof-lastrepo.json 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::keeping an existing proof should still exit 0, got $status"
+            fail=1
+          fi
+          if ! cmp -s ./proof.json ./proof-lastrepo.json; then
+            echo "::error::a proof with operations must survive a run that finds no spec"
+            fail=1
+          fi
+          if ! grep -q "allow-empty" <<< "$out"; then
+            echo "::error::the kept-proof warning should name the --allow-empty override"
+            fail=1
+          fi
+
+          # But --allow-empty (which dev/build pass when refreshing the bundled
+          # artifact) clears it, so pointing the viewer at a repo whose API is
+          # not written yet cannot leave the last repo's coverage on screen
+          # under this repo's name.
+          sp generate --out ./proof-lastrepo.json --allow-empty || fail=1
+          node -e "
+            const p = require('./proof-lastrepo.json');
+            if (p.operationCount !== 0 || p.hasSpec !== false) {
+              console.error('--allow-empty must clear a proof carried over from another repo');
+              process.exit(1);
+            }
+          " || fail=1
+          rm ./proof-lastrepo.json
 
           mv ./api/openapi.json.bak ./api/openapi.json
           exit "$fail"

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The empty-proof guard is now regression-aware rather than absolute: writing a proof with no operations is refused only when it would overwrite one that had some. That case keeps its hard failure, and names both counts in the message.
+- Finding no spec at all now writes an empty proof rather than keeping whatever was already on disk. Auditing a repo whose API isn't written yet could previously leave the previously audited repo's coverage on screen, relabeled with the new repo's name. A proof that already has operations is still kept, since a spec that suddenly can't be found is more often a moved file than a deleted API, and the warning now names `--allow-empty` as the override. `specproof dev` and `build` pass that flag when refreshing their own artifact; `--check` remains a hard failure.
 - `specproof dev` no longer refuses to start when the spec doesn't parse. It warns, serves the last good proof, and heals on the next save, since half-written YAML is the normal state of a file being edited. `specproof build` still fails hard.
 
 ### Upgrading

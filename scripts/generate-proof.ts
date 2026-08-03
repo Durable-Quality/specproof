@@ -10,8 +10,9 @@
 // override with --out / SPECPROOF_OUT to write the proof into the audited
 // repo instead (e.g. to commit it there). --check verifies the output file is
 // up to date without writing — the CI drift guard. When no target spec is
-// found, the existing artifact is left untouched so the app still builds and
-// renders.
+// found, an empty proof is written so the app still builds and renders its
+// empty state — unless that would replace a proof with operations in it, which
+// takes --allow-empty (dev/build pass it; see the guard in runGenerate).
 
 import fs from 'fs';
 import path from 'path';
@@ -191,15 +192,30 @@ export function runGenerate(options: GenerateOptions = {}): number {
       console.error(`generate-proof: ${hint}`);
       return 1;
     }
-    if (!fs.existsSync(outPath)) {
-      // The artifact is not published with the package, so a fresh install has
-      // no proof at all. Write an empty one: the app needs the file to build,
-      // and an empty report renders the "no API definition" state.
-      fs.writeFileSync(outPath, JSON.stringify(emptyProof(false), null, 2) + '\n');
-      console.warn(`generate-proof: ${hint}; wrote an empty proof to ${outLabel}`);
+    // Same regression guard as the zero-operations case below, for the same
+    // reason: an empty proof is only worth refusing when it would destroy one
+    // that had something in it. Keeping the old proof unconditionally is worse
+    // than useless when the artifact is a cache of whichever repo was last
+    // audited — `specproof dev` on a repo whose API isn't written yet would
+    // audit this repo while displaying the last one's coverage, which is the
+    // single most misleading thing this tool can do. So dev/build's
+    // --allow-empty clears it, and only a proof with operations behind it (a
+    // consumer's committed --out, where discovery breaking is the likelier
+    // cause than the spec really being gone) is left alone.
+    const previous = existingOperationCount(outPath);
+    if (previous > 0 && !options.allowEmpty) {
+      console.warn(
+        `generate-proof: ${hint}; keeping the existing ${outLabel} (${previous} operations). ` +
+          'Pass --allow-empty to replace it with an empty proof.'
+      );
       return 0;
     }
-    console.warn(`generate-proof: ${hint}; keeping the existing proof`);
+    // Below the guard: either there is nothing to lose, or the caller said to
+    // overwrite. The app needs the file to exist in order to build, and an
+    // empty report renders the "no API definition" state. (A fresh install
+    // lands here too — the artifact is not published with the package.)
+    fs.writeFileSync(outPath, JSON.stringify(emptyProof(false), null, 2) + '\n');
+    console.warn(`generate-proof: ${hint}; wrote an empty proof to ${outLabel}`);
     return 0;
   }
 
