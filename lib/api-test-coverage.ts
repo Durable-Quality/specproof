@@ -120,6 +120,14 @@ export function loadSpec(specPath: string): OpenApiDocument {
   // A UTF-8 BOM is legal in the file and fatal to both parsers.
   const source = fs.readFileSync(specPath, 'utf8').replace(/^\uFEFF/, '');
 
+  // An empty file is a scaffold, not a broken one: `touch openapi.yaml` is step
+  // one of writing an API, and the audit view should open on it rather than
+  // refuse to build. Checked before parsing because an empty JSON file is a
+  // syntax error, while an empty YAML file is the legal null document \u2014 the
+  // same intent should not depend on the extension. Callers tell a scaffold
+  // from a real spec by its lack of operations, not by a parse failure.
+  if (source.trim() === '') return {};
+
   const format = YAML_SPEC_RE.test(specPath)
     ? 'YAML'
     : JSON_SPEC_RE.test(specPath)
@@ -146,7 +154,11 @@ export function loadSpec(specPath: string): OpenApiDocument {
     throw new Error(`api-test-coverage: could not parse ${specPath} as ${format}: ${detail}`);
   }
 
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+  // A comment-only YAML file parses to null. Same intent as the empty file
+  // above — a spec someone has started but not yet written operations into.
+  if (parsed === null || parsed === undefined) return {};
+
+  if (typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(
       `api-test-coverage: ${specPath} parsed, but is not an OpenAPI document (expected an object at the top level)`
     );
@@ -225,6 +237,12 @@ export interface TagCoverage {
 export interface CoverageReport {
   /** Display name of the audited repo (its package.json "name", falling back to the directory name) */
   repoName: string;
+  /** Whether a spec was actually resolved. Distinguishes "no API definition
+   *  found at all" from "a spec exists but documents no operations yet" — both
+   *  produce operationCount 0, but only the second is a working scaffold.
+   *  Deliberately a boolean rather than the spec's path: the proof must stay
+   *  byte-identical whether the spec was authored as JSON or YAML. */
+  hasSpec: boolean;
   tags: TagCoverage[];
   operationCount: number;
   /** documented (path, method, status) pairs with assertions */
@@ -484,6 +502,7 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
   const operations = tags.flatMap((t) => t.operations);
   return {
     repoName: resolveRepoName(repoRoot),
+    hasSpec: true,
     tags,
     operationCount: operations.length,
     coveredCount: tags.reduce((n, t) => n + t.coveredCount, 0),
