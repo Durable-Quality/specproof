@@ -19,10 +19,11 @@ import { fileURLToPath } from 'url';
 
 import {
   buildCoverageReport,
+  describeMissingSpec,
   findSpecCandidates,
   looksLikeSpecFile,
   resolveRepoName,
-  resolveSpecPath,
+  resolveSpec,
   specDepth,
   TARGET_REPO_ROOT,
   type CoverageReport,
@@ -128,7 +129,19 @@ export function runGenerate(options: GenerateOptions = {}): number {
     return 1;
   }
 
-  const specPath = resolveSpecPath();
+  const resolution = resolveSpec();
+
+  // An explicit --spec that does not resolve is always a hard error, --check or
+  // not: the user named a file, so silently auditing something else (or keeping
+  // a stale proof and exiting 0) hides their mistake instead of reporting it.
+  // This is what used to make a mis-anchored relative path look as though only
+  // an absolute one worked.
+  if (resolution.kind === 'missing-explicit') {
+    console.error(`generate-proof: ${describeMissingSpec(resolution)}`);
+    return 1;
+  }
+
+  const specPath = resolution.kind === 'found' ? resolution.specPath : null;
   if (!specPath) {
     const hint =
       `no OpenAPI spec found under ${TARGET_REPO_ROOT} — ` +

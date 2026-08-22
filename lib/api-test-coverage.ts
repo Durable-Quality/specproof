@@ -97,16 +97,96 @@ export function specDepth(specPath: string): number {
 }
 
 /**
+ * The enclosing git repository of `startDir`, or null. Used only as the last
+ * anchor for a relative SPECPROOF_SPEC: it is what a user means by "the repo
+ * root" when they run SpecProof from a package subdirectory, which the audited
+ * root (cwd by default) is not.
+ */
+export function findVcsRoot(startDir: string): string | null {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/** Whether `candidate` is a readable file (a directory is not a spec). */
+function isFile(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where an explicit SPECPROOF_SPEC could be anchored, best guess first. A
+ * relative path is tried against the audited root (what the docs promise),
+ * then cwd, then the enclosing git root: the last of which is what rescues
+ * `--spec docs/openapi.yaml` run from a monorepo package, where the audited
+ * root is the package, not the repo.
+ *
+ * An absolute path is taken literally first, but a leading separator is also
+ * a common way of writing "from the repo root" (`--spec /api/openapi.json`),
+ * so the anchored readings are tried as fallbacks rather than letting the
+ * filesystem-absolute reading be the only one.
+ */
+function specCandidatesFor(spec: string, repoRoot: string): string[] {
+  const anchors = [repoRoot, process.cwd(), findVcsRoot(process.cwd())].filter(
+    (anchor): anchor is string => anchor !== null
+  );
+  const relative = path.isAbsolute(spec) ? spec.replace(/^[\\/]+/, '') : spec;
+  const candidates = path.isAbsolute(spec) ? [spec] : [];
+  for (const anchor of anchors) candidates.push(path.resolve(anchor, relative));
+  return [...new Set(candidates)];
+}
+
+/**
+ * What the target repo should be audited against. Distinguishes an explicit
+ * spec that did not resolve from a repo with no spec at all: the two used to
+ * collapse into the same null, which made a mis-anchored `--spec` look exactly
+ * like "nothing to audit here" and silently keep a stale proof.
+ */
+export type SpecResolution =
+  | { kind: 'found'; specPath: string }
+  | { kind: 'missing-explicit'; requested: string; tried: string[] }
+  | { kind: 'none' };
+
+export function resolveSpec(repoRoot: string = TARGET_REPO_ROOT): SpecResolution {
+  const requested = process.env.SPECPROOF_SPEC;
+  if (requested) {
+    const tried = specCandidatesFor(requested, repoRoot);
+    const found = tried.find(isFile);
+    return found
+      ? { kind: 'found', specPath: found }
+      : { kind: 'missing-explicit', requested, tried };
+  }
+  const discovered = findSpecCandidates(repoRoot)[0];
+  return discovered ? { kind: 'found', specPath: discovered } : { kind: 'none' };
+}
+
+/** How an unresolvable `--spec` should be reported, in one line per path tried. */
+export function describeMissingSpec(resolution: {
+  requested: string;
+  tried: string[];
+}): string {
+  return (
+    `--spec ${resolution.requested} did not resolve to a file. Tried:\n` +
+    resolution.tried.map((candidate) => `  ${candidate}`).join('\n')
+  );
+}
+
+/**
  * Locate the OpenAPI spec in the target repo: SPECPROOF_SPEC (relative to the
  * repo root, or absolute) wins; otherwise the best candidate from
- * `findSpecCandidates`. Returns null when there is nothing to audit.
+ * `findSpecCandidates`. Returns null when there is nothing to audit; callers
+ * that need to tell a bad `--spec` from an unspecced repo want `resolveSpec`.
  */
 export function resolveSpecPath(repoRoot: string = TARGET_REPO_ROOT): string | null {
-  if (process.env.SPECPROOF_SPEC) {
-    const explicit = path.resolve(repoRoot, process.env.SPECPROOF_SPEC);
-    return fs.existsSync(explicit) ? explicit : null;
-  }
-  return findSpecCandidates(repoRoot)[0] ?? null;
+  const resolution = resolveSpec(repoRoot);
+  return resolution.kind === 'found' ? resolution.specPath : null;
 }
 
 /**
@@ -406,15 +486,18 @@ export function collectTestEvidence(repoRoot: string): Map<string, OperationEvid
 // ============================================================================
 
 export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): CoverageReport {
-  const specPath = resolveSpecPath(repoRoot);
-  if (!specPath) {
+  const resolution = resolveSpec(repoRoot);
+  if (resolution.kind === 'missing-explicit') {
+    throw new Error(`api-test-coverage: ${describeMissingSpec(resolution)}`);
+  }
+  if (resolution.kind === 'none') {
     throw new Error(
       `api-test-coverage: no OpenAPI spec found under ${repoRoot} — ` +
         'set SPECPROOF_REPO to the repo to audit, or SPECPROOF_SPEC to the spec file'
     );
   }
 
-  const spec = loadSpec(specPath);
+  const spec = loadSpec(resolution.specPath);
 
   const evidenceByOperation = collectTestEvidence(repoRoot);
   const tagOrder = (spec.tags ?? []).map((t) => t.name);

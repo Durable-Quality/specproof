@@ -15,6 +15,8 @@ import { createRequire } from 'module';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
+import { CliUsageError, parseCliArgs, USAGE } from './cli-args.js';
+
 // This file runs both as source (scripts/cli.ts, via `bun run dev` in this
 // repo's own dev loop) and compiled (dist/scripts/cli.js, once installed as
 // a dependency — see tsconfig.cli.json) — one directory level deeper than
@@ -33,28 +35,6 @@ function findPackageRoot(startDir: string): string {
 
 const appRoot = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
 
-const USAGE = `specproof — audit a repo's API test coverage against its OpenAPI spec
-
-Usage: specproof <command> [options]
-
-Commands:
-  generate   Compile the coverage proof from the target repo's spec + tests
-  dev        generate, then serve the audit view with next dev
-  build      generate, then production-build the audit view
-  start      Serve the production build
-
-Options:
-  --repo <path>   Repo to audit (default: current directory; env SPECPROOF_REPO)
-  --spec <path>   OpenAPI spec (JSON or YAML), relative to the repo root when the
-                  auto-discovery of openapi* / swagger* doesn't apply, or when a
-                  repo holds more than one (env SPECPROOF_SPEC)
-  --out <path>    generate only: where to write the proof (default: the app's
-                  bundled artifact; env SPECPROOF_OUT)
-  --check         generate only: verify the proof at --out is up to date instead
-                  of writing — exits 1 on drift (the CI guard)
-  --port <port>   dev/start only: port to serve on (default: 3001)
-`;
-
 function fail(message: string): never {
   console.error(`specproof: ${message}\n\n${USAGE}`);
   process.exit(1);
@@ -62,26 +42,20 @@ function fail(message: string): never {
 
 const [command, ...rest] = process.argv.slice(2);
 
-let port = '3001';
-const generateArgs: string[] = [];
-for (let i = 0; i < rest.length; i++) {
-  const arg = rest[i];
-  const value = () => {
-    const v = rest[++i];
-    if (!v) fail(`${arg} requires a value`);
-    return v;
-  };
-  // --repo/--spec become env vars so the analyzer (which reads them at import
-  // time) picks them up when the generator is dynamically imported below.
-  if (arg === '--repo') process.env.SPECPROOF_REPO = value();
-  else if (arg === '--spec') process.env.SPECPROOF_SPEC = value();
-  else if (arg === '--port') port = value();
-  else if (arg === '--out' || arg === '--check') {
-    if (command !== 'generate') fail(`${arg} only applies to the generate command`);
-    generateArgs.push(arg);
-    if (arg === '--out') generateArgs.push(value());
-  } else fail(`unknown option: ${arg}`);
+let invocation;
+try {
+  invocation = parseCliArgs(command, rest);
+} catch (error) {
+  if (error instanceof CliUsageError) fail(error.message);
+  throw error;
 }
+
+const { port, generateArgs } = invocation;
+
+// --repo/--spec become env vars so the analyzer (which reads them at import
+// time) picks them up when the generator is dynamically imported below.
+if (invocation.repo !== undefined) process.env.SPECPROOF_REPO = invocation.repo;
+if (invocation.spec !== undefined) process.env.SPECPROOF_SPEC = invocation.spec;
 
 async function generate(argv: string[]): Promise<number> {
   // Dynamic import so the env vars set above are read, not the values at CLI

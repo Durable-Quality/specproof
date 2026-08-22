@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-08-22
+
+### Fixed
+- `--spec` (and `SPECPROOF_SPEC`) no longer requires an absolute path. A relative path is anchored at the audited repo root, then the current directory, then the enclosing git root, so a path written relative to the checkout resolves even when SpecProof is run from a package subdirectory. A leading `/` is also read as repo-root-relative when no such absolute file exists.
+- An explicit `--spec` that resolves nowhere is now a hard error listing every path tried, and exits 1 with or without `--check`. It previously returned the same "no OpenAPI spec found" result as an unspecced repo, so `generate` kept the stale proof and exited 0, which is what made an absolute path look like the only thing that worked.
+- A directory is no longer accepted as a spec path.
+
 ## [0.7.2] - 2026-08-01
 
 ### Changed

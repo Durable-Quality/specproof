@@ -333,3 +333,70 @@ describe('spec discovery', () => {
     expect(check.errors).toMatch(/no OpenAPI spec found/);
   });
 });
+
+// ============================================================================
+// Unresolvable --spec (DEV-10)
+// ============================================================================
+//
+// A --spec that does not resolve used to return the same null as "this repo has
+// no spec", so the generator kept the stale proof and exited 0. The user named a
+// file; failing to find it is an error, with or without --check.
+
+describe('unresolvable --spec', () => {
+  it('fails with the paths it tried instead of keeping the proof', async () => {
+    const repo = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = path.join(repo, 'proof.json');
+    fs.writeFileSync(out, '{"stale":true}');
+
+    const run = await runGenerateIn(repo, { out, spec: 'docs/nope.yaml' });
+
+    expect(run.code).toBe(1);
+    expect(run.errors).toMatch(/--spec docs\/nope\.yaml did not resolve to a file/);
+    expect(run.errors).toContain(path.join(repo, 'docs/nope.yaml'));
+    // The stale proof is left exactly as it was, not overwritten or emptied.
+    expect(fs.readFileSync(out, 'utf8')).toBe('{"stale":true}');
+  });
+
+  it('never silently falls back to the discoverable spec beside it', async () => {
+    const repo = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = path.join(repo, 'proof.json');
+
+    const run = await runGenerateIn(repo, { out, spec: 'docs/nope.yaml' });
+
+    expect(run.code).toBe(1);
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it('fails the same way under --check', async () => {
+    const repo = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = path.join(repo, 'proof.json');
+    await runGenerateIn(repo, { out });
+
+    const run = await runGenerateIn(repo, { out, check: true, spec: 'docs/nope.yaml' });
+
+    expect(run.code).toBe(1);
+    expect(run.errors).toMatch(/--spec docs\/nope\.yaml did not resolve to a file/);
+  });
+
+  it('resolves a spec named relative to the git root from a package subdirectory', async () => {
+    // The monorepo shape the bug was reported against: the audited root is the
+    // package, but --spec is written relative to the checkout root.
+    const repo = makeRepo({
+      '.git/config': '',
+      'docs/openapi.yaml': SPEC_YAML,
+      'packages/api/tests/widgets.test.ts': WIDGET_TESTS
+    });
+    const pkg = path.join(repo, 'packages/api');
+    const out = path.join(repo, 'proof.json');
+    const savedCwd = process.cwd();
+
+    try {
+      process.chdir(pkg);
+      const run = await runGenerateIn(pkg, { out, spec: 'docs/openapi.yaml' });
+      expect(run.code).toBe(0);
+      expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBe(1);
+    } finally {
+      process.chdir(savedCwd);
+    }
+  });
+});

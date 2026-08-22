@@ -7,11 +7,14 @@ import {
   buildCoverageReport,
   collectTestEvidence,
   dedent,
+  describeMissingSpec,
   extractItBlocks,
   findSpecCandidates,
+  findVcsRoot,
   loadSpec,
   operationKey,
   parseTestFile,
+  resolveSpec,
   resolveSpecPath
 } from '@/lib/api-test-coverage';
 
@@ -635,5 +638,106 @@ describe('buildCoverageReport', () => {
   it('surfaces a malformed spec as a parse error, not a silently empty report', () => {
     const root = makeRepo({ 'openapi.yaml': 'openapi: 3.0.0\npaths: { /widgets: \n' });
     expect(() => buildCoverageReport(root)).toThrow(/could not parse/);
+  });
+});
+
+// ============================================================================
+// Explicit --spec / SPECPROOF_SPEC anchoring (DEV-10)
+// ============================================================================
+//
+// A relative --spec used to be resolved against the audited root only, and the
+// audited root defaults to cwd. Running SpecProof from a package subdirectory
+// therefore anchored "relative to the repo root" at the subdirectory, and the
+// miss was reported as "no spec found at all", which is what made an absolute
+// path look like the only thing that worked.
+
+describe('findVcsRoot', () => {
+  it('finds the enclosing .git directory from a nested start', () => {
+    const root = fs.realpathSync(makeRepo({ '.git/config': '', 'packages/api/index.ts': '' }));
+    expect(findVcsRoot(path.join(root, 'packages/api'))).toBe(root);
+  });
+
+  it('returns null when nothing above the start is a repo', () => {
+    // os.tmpdir() itself is not inside a checkout, so the walk runs to /.
+    const root = makeRepo({ 'packages/api/index.ts': '' });
+    expect(findVcsRoot(path.join(root, 'packages/api'))).toBeNull();
+  });
+});
+
+describe('explicit spec anchoring', () => {
+  const savedCwd = process.cwd();
+  afterEach(() => process.chdir(savedCwd));
+
+  it('anchors a relative spec at the audited root first', () => {
+    const root = makeRepo({ 'docs/openapi.json': '{}', 'other/docs/openapi.json': '{}' });
+    process.env.SPECPROOF_SPEC = 'docs/openapi.json';
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'docs/openapi.json'));
+  });
+
+  it('falls back to the enclosing git root when the audited root is a subdirectory', () => {
+    // The monorepo case: `cd packages/api && specproof generate --spec docs/openapi.json`,
+    // where docs/ sits at the repo root, not in the package.
+    const root = fs.realpathSync(
+      makeRepo({ '.git/config': '', 'docs/openapi.json': '{}', 'packages/api/index.ts': '' })
+    );
+    const pkg = path.join(root, 'packages/api');
+    process.chdir(pkg);
+    process.env.SPECPROOF_SPEC = 'docs/openapi.json';
+    expect(resolveSpecPath(pkg)).toBe(path.join(root, 'docs/openapi.json'));
+  });
+
+  it('reads a leading slash as repo-root-relative when no such absolute file exists', () => {
+    // `--spec /api/openapi.json` is a natural way to write "from the repo
+    // root"; taken literally it points at a filesystem path that never exists.
+    const root = makeRepo({ 'api/openapi.json': '{}' });
+    process.env.SPECPROOF_SPEC = '/api/openapi.json';
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'api/openapi.json'));
+  });
+
+  it('still prefers a genuine absolute path over the anchored reading', () => {
+    // Both readings of the same value exist here: the real absolute file, and
+    // the repo-root-anchored path built by stripping its leading separator.
+    // The literal one has to win, or an absolute --spec would stop meaning
+    // what it says.
+    const outside = makeRepo({ 'openapi.json': '{"from":"outside"}' });
+    const absolute = path.join(outside, 'openapi.json');
+    const root = makeRepo({ [absolute.replace(/^[\\/]+/, '')]: '{"from":"inside"}' });
+    process.env.SPECPROOF_SPEC = absolute;
+    expect(resolveSpecPath(root)).toBe(absolute);
+  });
+
+  it('does not accept a directory as a spec', () => {
+    const root = makeRepo({ 'openapi.json/keep': '' });
+    process.env.SPECPROOF_SPEC = 'openapi.json';
+    expect(resolveSpecPath(root)).toBeNull();
+  });
+
+  it('reports an unresolvable spec as missing-explicit, listing every path tried', () => {
+    const root = makeRepo({ 'openapi.json': '{}' });
+    process.env.SPECPROOF_SPEC = 'docs/nope.json';
+    const resolution = resolveSpec(root);
+    expect(resolution.kind).toBe('missing-explicit');
+    if (resolution.kind !== 'missing-explicit') throw new Error('unreachable');
+    expect(resolution.requested).toBe('docs/nope.json');
+    expect(resolution.tried).toContain(path.join(root, 'docs/nope.json'));
+    // Never silently falls back to the discoverable openapi.json beside it.
+    expect(resolution.tried.every((candidate) => !fs.existsSync(candidate))).toBe(true);
+  });
+
+  it('distinguishes an unspecced repo from a bad --spec', () => {
+    expect(resolveSpec(makeRepo({ 'README.md': '' })).kind).toBe('none');
+  });
+
+  it('describeMissingSpec names the request and each candidate', () => {
+    const message = describeMissingSpec({ requested: 'docs/nope.json', tried: ['/a/x', '/b/x'] });
+    expect(message).toContain('--spec docs/nope.json did not resolve to a file');
+    expect(message).toContain('  /a/x');
+    expect(message).toContain('  /b/x');
+  });
+
+  it('buildCoverageReport surfaces the bad --spec rather than "no spec found"', () => {
+    const root = makeRepo({ 'openapi.json': '{"paths":{}}' });
+    process.env.SPECPROOF_SPEC = 'docs/nope.json';
+    expect(() => buildCoverageReport(root)).toThrow(/--spec docs\/nope\.json did not resolve/);
   });
 });
