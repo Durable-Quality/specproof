@@ -248,71 +248,7 @@ jobs:
             bun)  bunx --no-install specproof generate --out ./proof.json --check ;;
           esac
 
-      - name: 🎯 `--spec` resolves relative to the repo root, from any directory
-        # DEV-10: a relative --spec used to be anchored at the audited root,
-        # which defaults to cwd, so running from a package subdirectory made a
-        # repo-root-relative path miss, and the miss was reported as "no spec
-        # found at all". That combination is why an absolute path looked like
-        # the only thing that worked.
-        working-directory: /tmp/consumer
-        run: |
-          # The git root is the last anchor tried, so the fixture needs to be one.
-          git init -q . 2>/dev/null || true
-          mkdir -p ./packages/api
-          fail=0
-
-          specproof_run() {
-            case "${{ matrix.pm }}" in
-              npm)  npx --no-install specproof "$@" ;;
-              pnpm) pnpm exec specproof "$@" ;;
-              yarn) yarn specproof "$@" ;;
-              bun)  bunx --no-install specproof "$@" ;;
-            esac
-          }
-
-          # 1. Repo-root-relative --spec, run from the repo root.
-          specproof_run generate --spec api/openapi.json --out ./proof-spec.json
-          node -e "const d=require('./proof-spec.json'); if (!d.operationCount) process.exit(1)" \
-            || { echo "::error::--spec produced an empty proof"; fail=1; }
-
-          # 2. The same --spec value, run from a package subdirectory. Only the
-          #    spec has to resolve identically: the audited root still defaults
-          #    to cwd, so the package's own (absent) tests are what get scanned,
-          #    and the operation count is the signal that the shared spec was
-          #    found rather than missed.
-          ( cd ./packages/api && specproof_run generate --spec api/openapi.json --out /tmp/consumer/proof-sub.json )
-          root_ops=$(node -e "console.log(require('/tmp/consumer/proof-spec.json').operationCount)")
-          sub_ops=$(node -e "console.log(require('/tmp/consumer/proof-sub.json').operationCount)")
-          if [ "$root_ops" != "$sub_ops" ]; then
-            echo "::error::--spec resolved to a different spec from a subdirectory ($sub_ops ops) than from the repo root ($root_ops ops)"
-            fail=1
-          fi
-
-          # 3. A --spec that resolves nowhere is a hard error naming what it tried,
-          #    never a silent fall back to the discoverable spec beside it.
-          rm -f ./proof-bogus.json
-          set +e
-          out=$(specproof_run generate --spec api/nope.json --out ./proof-bogus.json 2>&1)
-          status=$?
-          set -e
-          echo "$out"
-          if [ "$status" -ne 1 ]; then
-            echo "::error::expected exit 1 for an unresolvable --spec, got $status"
-            fail=1
-          fi
-          if ! grep -q "did not resolve to a file" <<< "$out"; then
-            echo "::error::an unresolvable --spec must say so, naming each path tried"
-            fail=1
-          fi
-          if [ -e ./proof-bogus.json ]; then
-            echo "::error::an unresolvable --spec must not write a proof"
-            fail=1
-          fi
-
-          rm -rf ./packages ./.git ./proof-spec.json ./proof-sub.json
-          exit "$fail"
-
-      - name: 🚫 `--check` hard-fails with no spec (plain generate soft-skips)
+      - name: "🚫 No spec: `--check` hard-fails, generate soft-skips, no stale proof shows"
         working-directory: /tmp/consumer
         run: |
           mv ./api/openapi.json ./api/openapi.json.bak
@@ -356,8 +292,115 @@ jobs:
             fail=1
           fi
 
+          sp() {
+            case "${{ matrix.pm }}" in
+              npm)  npx --no-install specproof "$@" ;;
+              pnpm) pnpm exec specproof "$@" ;;
+              yarn) yarn specproof "$@" ;;
+              bun)  bunx --no-install specproof "$@" ;;
+            esac
+          }
+
+          # A committed proof with operations in it survives a run that finds no
+          # spec: that is far more often a moved or renamed spec than an API
+          # someone deleted.
+          cp ./proof.json ./proof-lastrepo.json
+          set +e
+          out=$(sp generate --out ./proof-lastrepo.json 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::keeping an existing proof should still exit 0, got $status"
+            fail=1
+          fi
+          if ! cmp -s ./proof.json ./proof-lastrepo.json; then
+            echo "::error::a proof with operations must survive a run that finds no spec"
+            fail=1
+          fi
+          if ! grep -q "allow-empty" <<< "$out"; then
+            echo "::error::the kept-proof warning should name the --allow-empty override"
+            fail=1
+          fi
+
+          # But --allow-empty (which dev/build pass when refreshing the bundled
+          # artifact) clears it, so pointing the viewer at a repo whose API is
+          # not written yet cannot leave the last repo's coverage on screen
+          # under this repo's name.
+          sp generate --out ./proof-lastrepo.json --allow-empty || fail=1
+          node -e "
+            const p = require('./proof-lastrepo.json');
+            if (p.operationCount !== 0 || p.hasSpec !== false) {
+              console.error('--allow-empty must clear a proof carried over from another repo');
+              process.exit(1);
+            }
+          " || fail=1
+          rm ./proof-lastrepo.json
+
           mv ./api/openapi.json.bak ./api/openapi.json
           exit "$fail"
+
+      - name: ✅ A barebones spec scaffolds instead of failing
+        # The develop-alongside loop: start from `touch openapi.yaml` and add
+        # operations as you go. Every step here has to stay renderable, because
+        # a hard failure means `specproof dev` can never open on a repo whose
+        # API is still being written.
+        working-directory: /tmp/consumer
+        run: |
+          sp() {
+            case "${{ matrix.pm }}" in
+              npm)  npx --no-install specproof "$@" ;;
+              pnpm) pnpm exec specproof "$@" ;;
+              yarn) yarn specproof "$@" ;;
+              bun)  bunx --no-install specproof "$@" ;;
+            esac
+          }
+
+          mv ./api/openapi.json ./api/openapi.json.bak
+          : > ./api/openapi.yaml
+
+          sp generate --out ./proof-scaffold.json
+          node -e "
+            const p = require('./proof-scaffold.json');
+            if (p.operationCount !== 0) { console.error('expected an empty proof'); process.exit(1); }
+            if (p.hasSpec !== true) { console.error('a scaffold spec must record hasSpec'); process.exit(1); }
+          "
+
+          # A committed empty proof is a legitimate CI state, not perpetual drift.
+          sp generate --out ./proof-scaffold.json --check
+
+          # The first operation lands: --check catches it, regenerating heals it.
+          cat > ./api/openapi.yaml <<'YAML'
+          openapi: 3.0.0
+          paths:
+            /tasks:
+              get:
+                responses:
+                  "200": { description: OK }
+          YAML
+          if sp generate --out ./proof-scaffold.json --check; then
+            echo "::error::--check should fail once the scaffold gained an operation"
+            exit 1
+          fi
+          sp generate --out ./proof-scaffold.json
+          sp generate --out ./proof-scaffold.json --check
+
+          # Emptying a spec that already had operations stays a hard failure:
+          # that is truncation, not scaffolding.
+          before=$(cat ./proof-scaffold.json)
+          : > ./api/openapi.yaml
+          if sp generate --out ./proof-scaffold.json; then
+            echo "::error::emptying a spec whose proof has operations must fail"
+            exit 1
+          fi
+          if [ "$before" != "$(cat ./proof-scaffold.json)" ]; then
+            echo "::error::the refused run must not modify the proof"
+            exit 1
+          fi
+          sp generate --out ./proof-scaffold.json --allow-empty
+
+          rm ./api/openapi.yaml ./proof-scaffold.json
+          mv ./api/openapi.json.bak ./api/openapi.json
 
       - name: ✅ A YAML spec audits identically to its JSON conversion
         # The format a spec is serialized in must be invisible to the proof:

@@ -5,12 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.3] - 2026-08-22
+## [0.8.0] - 2026-08-03
 
-### Fixed
-- `--spec` (and `SPECPROOF_SPEC`) no longer requires an absolute path. A relative path is anchored at the audited repo root, then the current directory, then the enclosing git root, so a path written relative to the checkout resolves even when SpecProof is run from a package subdirectory. A leading `/` is also read as repo-root-relative when no such absolute file exists.
-- An explicit `--spec` that resolves nowhere is now a hard error listing every path tried, and exits 1 with or without `--check`. It previously returned the same "no OpenAPI spec found" result as an unspecced repo, so `generate` kept the stale proof and exited 0, which is what made an absolute path look like the only thing that worked.
-- A directory is no longer accepted as a spec path.
+### Added
+- Specs can now be developed alongside SpecProof from nothing: an empty, comment-only, or path-less OpenAPI file compiles to an empty proof and renders instead of failing, so `specproof dev` opens on a repo whose API is still being written.
+- `specproof dev` watches the audited repo's spec and test files and rebuilds the proof as they change, so adding an operation shows up in the report without a restart. Disable with `--no-watch`.
+- `specproof generate --allow-empty` writes a proof with no operations even when the one it replaces had some.
+- The report distinguishes "no API definition found" from "a spec exists but documents no operations yet", and the second points at the next edit to make.
+
+### Changed
+- The empty-proof guard is now regression-aware rather than absolute: writing a proof with no operations is refused only when it would overwrite one that had some. That case keeps its hard failure, and names both counts in the message.
+- Finding no spec at all now writes an empty proof rather than keeping whatever was already on disk. Auditing a repo whose API isn't written yet could previously leave the previously audited repo's coverage on screen, relabeled with the new repo's name. A proof that already has operations is still kept, since a spec that suddenly can't be found is more often a moved file than a deleted API, and the warning now names `--allow-empty` as the override. `specproof dev` and `build` pass that flag when refreshing their own artifact; `--check` remains a hard failure.
+- `specproof dev` no longer refuses to start when the spec doesn't parse. It warns, serves the last good proof, and heals on the next save, since half-written YAML is the normal state of a file being edited. `specproof build` still fails hard.
+
+### Upgrading
+- Proofs gain a `hasSpec` field, so a proof committed by 0.7.x is one field behind. Run `specproof generate` once and commit the result. `specproof generate --check` detects this case and says the proof came from an older SpecProof rather than reporting it as spec drift, so CI points at the upgrade instead of sending you looking for a change that didn't happen. Plain `specproof generate` just rewrites the file.
 
 ## [0.7.2] - 2026-08-01
 

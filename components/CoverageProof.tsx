@@ -346,11 +346,33 @@ export function CoverageProof({
             className="sp-rise border border-dashed px-6 py-10 text-center"
             style={{ '--sp-stagger': 3 } as React.CSSProperties}
           >
-            <p className="text-sm font-semibold tracking-[0.14em]">NO API DEFINITION PROVIDED</p>
-            <div className="mt-4 flex flex-col gap-1 text-xs text-muted-foreground">
-              <code className="text-foreground/70">specproof dev --repo /path/to/repo</code>
-              <code className="text-foreground/70">specproof generate --spec path/to/openapi.json</code>
-            </div>
+            {report.hasSpec ? (
+              // A spec was found, it just has no operations yet — the state a
+              // repo sits in while the API is still being written. Point at
+              // the next edit rather than at how to find a spec.
+              <>
+                <p className="text-sm font-semibold tracking-[0.14em]">NO OPERATIONS DOCUMENTED YET</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  The spec was found and parsed, but documents no paths. Add one and this view
+                  updates as you save.
+                </p>
+                <pre className="mt-4 inline-block text-left text-xs text-foreground/70">
+{`paths:
+  /tasks:
+    get:
+      responses:
+        "200": { description: OK }`}
+                </pre>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold tracking-[0.14em]">NO API DEFINITION PROVIDED</p>
+                <div className="mt-4 flex flex-col gap-1 text-xs text-muted-foreground">
+                  <code className="text-foreground/70">specproof dev --repo /path/to/repo</code>
+                  <code className="text-foreground/70">specproof generate --spec path/to/openapi.json</code>
+                </div>
+              </>
+            )}
           </section>
         ) : (
           <Accordion

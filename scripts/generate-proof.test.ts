@@ -50,7 +50,7 @@ interface RunResult {
  */
 async function runGenerateIn(
   repoRoot: string,
-  options: { out: string; check?: boolean; spec?: string }
+  options: { out: string; check?: boolean; spec?: string; allowEmpty?: boolean }
 ): Promise<RunResult> {
   const saved = {
     repo: process.env.SPECPROOF_REPO,
@@ -72,7 +72,11 @@ async function runGenerateIn(
   try {
     vi.resetModules();
     const { runGenerate } = await import('@/scripts/generate-proof');
-    const code = runGenerate({ out: options.out, check: options.check });
+    const code = runGenerate({
+      out: options.out,
+      check: options.check,
+      allowEmpty: options.allowEmpty
+    });
     return { code, output: output.join('\n'), errors: errors.join('\n') };
   } finally {
     log.mockRestore();
@@ -249,25 +253,141 @@ describe('unreadable specs', () => {
   });
 
   it('fails on an empty YAML document rather than emptying the proof', async () => {
+    // An empty spec beside a proof that already has operations is the
+    // regression this guard exists for: truncation, or discovery latching onto
+    // the wrong file. Distinct from the scaffold case below, which has nothing
+    // to lose.
+    const root = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(root);
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+    const before = fs.readFileSync(out, 'utf8');
+
+    fs.writeFileSync(path.join(root, 'openapi.yaml'), '');
+
+    const run = await runGenerateIn(root, { out });
+
+    expect(run.code).toBe(1);
+    expect(run.errors).toMatch(/Refusing to overwrite a proof with an empty one/);
+    expect(fs.readFileSync(out, 'utf8')).toBe(before);
+  });
+
+  it('overwrites a non-empty proof with an empty one only under --allow-empty', async () => {
+    const root = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(root);
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+
+    fs.writeFileSync(path.join(root, 'openapi.yaml'), 'openapi: 3.0.0\npaths: {}\n');
+
+    const run = await runGenerateIn(root, { out, allowEmpty: true });
+
+    expect(run.code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBe(0);
+  });
+});
+
+describe('upgrading from an older proof schema', () => {
+  it('blames the upgrade, not the spec, when --check trips on a pre-0.8 proof', async () => {
+    const root = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(root);
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+
+    // Exactly what a 0.7.x consumer has committed: current content, no hasSpec.
+    const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
+    delete proof.hasSpec;
+    fs.writeFileSync(out, JSON.stringify(proof, null, 2) + '\n');
+
+    const run = await runGenerateIn(root, { out, check: true });
+
+    expect(run.code).toBe(1);
+    expect(run.errors).toMatch(/older version of SpecProof/);
+    // The misleading half of the old message must not appear: sending someone
+    // to git log for a spec change that never happened is the whole failure.
+    expect(run.errors).not.toMatch(/stale relative to the spec\/tests/);
+  });
+
+  it('still reports real drift as drift', async () => {
+    const root = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(root);
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+
+    fs.writeFileSync(path.join(root, 'openapi.yaml'), SPEC_YAML_DRIFTED);
+
+    const run = await runGenerateIn(root, { out, check: true });
+
+    expect(run.code).toBe(1);
+    expect(run.errors).toMatch(/stale relative to the spec\/tests/);
+    expect(run.errors).not.toMatch(/older version of SpecProof/);
+  });
+
+  it('regenerating heals the upgrade, adding only the new field', async () => {
+    const root = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(root);
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+    const current = JSON.parse(fs.readFileSync(out, 'utf8'));
+
+    const old = { ...current };
+    delete old.hasSpec;
+    fs.writeFileSync(out, JSON.stringify(old, null, 2) + '\n');
+
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8'))).toEqual(current);
+    expect((await runGenerateIn(root, { out, check: true })).code).toBe(0);
+  });
+});
+
+describe('barebones specs', () => {
+  // The scaffolding loop: start with nothing, run the generator as you write.
+  // Each of these must produce a renderable proof rather than a hard failure,
+  // or `specproof dev` can never open on a repo whose API isn't written yet.
+  const scaffolds: Record<string, string> = {
+    'an empty file': '',
+    'a comment-only file': '# paths go here\n',
+    'a spec with no paths key': 'openapi: 3.0.0\ninfo: { title: WIP, version: 0.0.0 }\n',
+    'a spec with an empty paths map': 'openapi: 3.0.0\npaths: {}\n',
+  };
+
+  for (const [label, contents] of Object.entries(scaffolds)) {
+    it(`writes an empty proof for ${label}`, async () => {
+      const root = makeRepo({ 'openapi.yaml': contents });
+      const out = outIn(root);
+
+      const run = await runGenerateIn(root, { out });
+
+      expect(run.code).toBe(0);
+      const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
+      expect(proof.operationCount).toBe(0);
+      // hasSpec is what separates this from a repo with no spec at all, and
+      // what the empty state branches on.
+      expect(proof.hasSpec).toBe(true);
+    });
+  }
+
+  it('marks a repo with no spec at all as hasSpec: false', async () => {
+    const root = makeRepo({ 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(root);
+
+    const run = await runGenerateIn(root, { out });
+
+    expect(run.code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).hasSpec).toBe(false);
+  });
+
+  it('grows the proof as operations are added, with --check tracking each step', async () => {
     const root = makeRepo({ 'openapi.yaml': '', 'tests/widgets.test.ts': WIDGET_TESTS });
     const out = outIn(root);
 
-    const run = await runGenerateIn(root, { out });
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBe(0);
+    // A committed empty proof is a legitimate CI state, not perpetual drift.
+    expect((await runGenerateIn(root, { out, check: true })).code).toBe(0);
 
-    expect(run.code).toBe(1);
-    expect(run.errors).toMatch(/not an OpenAPI document/);
-    expect(fs.existsSync(out)).toBe(false);
-  });
+    fs.writeFileSync(path.join(root, 'openapi.yaml'), SPEC_YAML);
 
-  it('refuses to write when a well-formed spec documents no operations', async () => {
-    const root = makeRepo({ 'openapi.yaml': 'openapi: 3.0.0\npaths: {}\n' });
-    const out = outIn(root);
-
-    const run = await runGenerateIn(root, { out });
-
-    expect(run.code).toBe(1);
-    expect(run.errors).toMatch(/no operations found in .*openapi\.yaml/);
-    expect(fs.existsSync(out)).toBe(false);
+    // The spec moved on, so the committed empty proof is now genuinely stale.
+    expect((await runGenerateIn(root, { out, check: true })).code).toBe(1);
+    expect((await runGenerateIn(root, { out })).code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBeGreaterThan(0);
+    expect((await runGenerateIn(root, { out, check: true })).code).toBe(0);
   });
 });
 
@@ -334,69 +454,64 @@ describe('spec discovery', () => {
   });
 });
 
-// ============================================================================
-// Unresolvable --spec (DEV-10)
-// ============================================================================
-//
-// A --spec that does not resolve used to return the same null as "this repo has
-// no spec", so the generator kept the stale proof and exited 0. The user named a
-// file; failing to find it is an error, with or without --check.
+describe('no spec, with a proof already on disk', () => {
+  // The artifact dev/build render is a cache of whichever repo was last
+  // audited. Pointing it at a repo with no spec must not leave the previous
+  // repo's coverage on screen under a new repo's name.
+  const specless = { 'readme.md': 'no spec here' };
 
-describe('unresolvable --spec', () => {
-  it('fails with the paths it tried instead of keeping the proof', async () => {
-    const repo = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
-    const out = path.join(repo, 'proof.json');
-    fs.writeFileSync(out, '{"stale":true}');
+  it("replaces the previous repo's proof with an empty one under --allow-empty", async () => {
+    const audited = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(audited);
+    expect((await runGenerateIn(audited, { out })).code).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBeGreaterThan(0);
 
-    const run = await runGenerateIn(repo, { out, spec: 'docs/nope.yaml' });
+    // What `specproof dev --repo <scaffold>` does with that same artifact.
+    const run = await runGenerateIn(makeRepo(specless), { out, allowEmpty: true });
 
-    expect(run.code).toBe(1);
-    expect(run.errors).toMatch(/--spec docs\/nope\.yaml did not resolve to a file/);
-    expect(run.errors).toContain(path.join(repo, 'docs/nope.yaml'));
-    // The stale proof is left exactly as it was, not overwritten or emptied.
-    expect(fs.readFileSync(out, 'utf8')).toBe('{"stale":true}');
+    expect(run.code).toBe(0);
+    expect(run.output).toMatch(/wrote an empty proof/);
+    const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(proof.operationCount).toBe(0);
+    expect(proof.hasSpec).toBe(false);
+    expect(proof.tags).toEqual([]);
   });
 
-  it('never silently falls back to the discoverable spec beside it', async () => {
-    const repo = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
-    const out = path.join(repo, 'proof.json');
+  it('keeps a proof that has operations when --allow-empty is not passed', async () => {
+    const audited = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
+    const out = outIn(audited);
+    expect((await runGenerateIn(audited, { out })).code).toBe(0);
+    const committed = fs.readFileSync(out, 'utf8');
 
-    const run = await runGenerateIn(repo, { out, spec: 'docs/nope.yaml' });
+    // A consumer's committed proof, where a spec that suddenly can't be found
+    // is likelier to be broken discovery than a deleted API.
+    const run = await runGenerateIn(makeRepo(specless), { out });
 
-    expect(run.code).toBe(1);
-    expect(fs.existsSync(out)).toBe(false);
+    expect(run.code).toBe(0);
+    expect(run.output).toMatch(/keeping the existing/);
+    expect(run.output).toMatch(/--allow-empty/);
+    expect(fs.readFileSync(out, 'utf8')).toBe(committed);
   });
 
-  it('fails the same way under --check', async () => {
-    const repo = makeRepo({ 'openapi.yaml': SPEC_YAML, 'tests/widgets.test.ts': WIDGET_TESTS });
-    const out = path.join(repo, 'proof.json');
-    await runGenerateIn(repo, { out });
+  it('overwrites an empty proof without needing --allow-empty', async () => {
+    // Nothing to lose: the repo name and hasSpec still have to track the repo
+    // actually being audited, or the empty state names the wrong one.
+    const root = makeRepo(specless);
+    const out = outIn(root);
+    fs.writeFileSync(
+      out,
+      JSON.stringify(
+        { repoName: 'some-other-repo', hasSpec: true, tags: [], operationCount: 0 },
+        null,
+        2
+      ) + '\n'
+    );
 
-    const run = await runGenerateIn(repo, { out, check: true, spec: 'docs/nope.yaml' });
+    const run = await runGenerateIn(root, { out });
 
-    expect(run.code).toBe(1);
-    expect(run.errors).toMatch(/--spec docs\/nope\.yaml did not resolve to a file/);
-  });
-
-  it('resolves a spec named relative to the git root from a package subdirectory', async () => {
-    // The monorepo shape the bug was reported against: the audited root is the
-    // package, but --spec is written relative to the checkout root.
-    const repo = makeRepo({
-      '.git/config': '',
-      'docs/openapi.yaml': SPEC_YAML,
-      'packages/api/tests/widgets.test.ts': WIDGET_TESTS
-    });
-    const pkg = path.join(repo, 'packages/api');
-    const out = path.join(repo, 'proof.json');
-    const savedCwd = process.cwd();
-
-    try {
-      process.chdir(pkg);
-      const run = await runGenerateIn(pkg, { out, spec: 'docs/openapi.yaml' });
-      expect(run.code).toBe(0);
-      expect(JSON.parse(fs.readFileSync(out, 'utf8')).operationCount).toBe(1);
-    } finally {
-      process.chdir(savedCwd);
-    }
+    expect(run.code).toBe(0);
+    const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(proof.repoName).toBe(path.basename(root));
+    expect(proof.hasSpec).toBe(false);
   });
 });

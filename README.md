@@ -15,15 +15,17 @@ npx specproof dev   # audit the current repo → http://localhost:3001
 
 Also works with `bun`, `pnpm` and `yarn`.
 
+Starting from scratch works too: `specproof dev` opens on an empty or half-written spec and rebuilds the report as you add operations, so you can write the spec and watch coverage appear beside it.
+
 ## CLI
 
 ```bash
 specproof generate [--out proof.json] [--check]   # compile the coverage proof
-specproof dev                                     # generate + serve the report
+specproof dev                                     # generate + serve the report, rebuilding on change
 specproof build && specproof start                # production build + serve
 ```
 
-Run `specproof --help` for the full option list (`--repo`, `--spec`, `--out`, `--port`).
+Run `specproof --help` for the full option list (`--repo`, `--spec`, `--out`, `--port`, `--allow-empty`, `--no-watch`).
 
 ## License
 

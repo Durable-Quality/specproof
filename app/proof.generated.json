@@ -1,5 +1,6 @@
 {
   "repoName": "specproof",
+  "hasSpec": true,
   "tags": [
     {
       "tag": "Auth",
