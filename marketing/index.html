@@ -430,35 +430,63 @@
      between them are real grid columns rather than a gap value, so the cards
      keep the spacing they had when connectors sat in them. */
   .flow {
-    /* One number keeps the evidence panes the same height, so they form a
-       single band across the row rather than three ragged blocks. */
-    --flow-body: 15.25rem;
+    /* A floor under the evidence panes, so a stage with little to show still
+       carries a band rather than a strip. What actually levels the three is
+       the shared row below, not this number. */
+    --flow-body: 16.5rem;
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+    /* Two rows - heads, then evidence - that every stage opts into via
+       subgrid. The hairline between them is the row boundary itself, so it
+       lands at one height across the row however the copy above it wraps or
+       however tall the evidence below it grows. */
+    grid-template-rows: auto auto;
     align-items: stretch;
     gap: 0;
   }
   @media (max-width: 860px) {
+    /* Stacked, each stage gets its own pair of rows and sizes itself: there
+       is no longer a row to level against. */
     .flow { grid-template-columns: minmax(0, 1fr); }
   }
 
   .flow-stage {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    /* the highlight's ring and lift hang off this box */
+    position: relative;
   }
-  .flow-head { padding: 1.6rem 1.5rem 1.2rem; }
+  /* the connectors sit beside a two-row stage, so they span the pair too */
+  .flow-link { grid-row: span 2; }
+  .flow-head { position: relative; padding: 1.6rem 1.5rem 1.2rem; }
   .flow-head h3 {
     margin: 0 0 0.4rem;
     font-size: 1.2rem;
     font-weight: 600;
     letter-spacing: -0.02em;
+    /* keeps the one-word heading clear of the step numeral opposite it */
+    padding-right: 2.8rem;
+  }
+  /* The step number, sized to sit in the heading's own row so nothing below
+     has to reserve space for it. Faint until the highlight reaches this card. */
+  .flow-n {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: rgba(255, 255, 255, 0.24);
+    user-select: none;
   }
   .flow-head p { margin: 0; font-size: 0.95rem; line-height: 1.7; color: var(--muted); }
 
   /* The panel's own picture of what the stage does, hung below a hairline so
      every stage opens the same way: label, name, sentence, evidence. */
   .flow-body {
-    margin-top: auto;
     min-height: var(--flow-body);
     padding: 1.15rem 1.5rem 1.4rem;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -475,27 +503,59 @@
     .flow-body { min-height: 0; max-width: 38rem; }
   }
 
-  /* the two source files feeding the audit */
+  /* The two source files feeding the audit. No accent rail: colour on this
+     page means a verdict, and neither of these is one. */
   .flow-file {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.55rem 0.7rem;
+    gap: 0.18rem;
+    padding: 0.65rem 0.7rem;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.02);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-    border-left: 2px solid var(--fc, var(--faint));
     min-width: 0;
   }
-  .flow-file[data-src="spec"] { --fc: var(--m-post); }
-  .flow-file[data-src="test"] { --fc: var(--ok); }
   .flow-file b { font-weight: 500; font-size: 0.74rem; }
   /* Muted qualifier inside a filename label. Whatever varies recedes - the
      name you pick, the other extensions accepted, the "or" between two spec
      formats - so what is actually required stays the bright part. */
   .flow-file b i { font-style: normal; font-weight: 400; color: var(--faint); }
-  .flow-file span {
+  /* Direct child only: the status rows below carry their own colour. */
+  .flow-file > span {
     color: var(--faint);
     font-size: 0.7rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* What each file actually carries for that one operation: the statuses the
+     spec documents, and the assertion that covers each. Listed in the order
+     Compare reads them, sharing .flow-verdict's fixed code column, so a
+     status can be tracked straight across the three cards - and so the gap
+     Compare stamps (401 documented, no it() opposite) and the undocumented
+     422 (an it() with no line opposite) are already visible here. */
+  .ff-rows {
+    display: grid;
+    gap: 0.12rem;
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .ff-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    font-size: 0.7rem;
+    min-width: 0;
+  }
+  .ff-row .c {
+    flex: none;
+    width: 2.1rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+  .ff-row .d {
+    min-width: 0;
+    color: var(--faint);
     overflow-x: auto;
     white-space: nowrap;
   }
@@ -512,8 +572,13 @@
     gap: 0.5rem;
     padding-bottom: 0.15rem;
   }
+  /* Compare and Guard carry four short rows against Read's two dense file
+     cards, which sets the row of panels' height. Their type runs a step
+     larger than Read's so the evidence fills the taller panel instead of
+     floating in it. */
+  .flow-key .method { font-size: 0.72rem; }
   .flow-key .k {
-    font-size: 0.74rem;
+    font-size: 0.85rem;
     letter-spacing: -0.01em;
   }
   .flow-key .k em { font-style: normal; color: var(--faint); }
@@ -522,11 +587,11 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.34rem 0;
+    padding: 0.5rem 0;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
   }
   .flow-verdict .code {
-    font-size: 0.76rem;
+    font-size: 0.88rem;
     font-variant-numeric: tabular-nums;
     width: 2.1rem;
     flex-shrink: 0;
@@ -573,6 +638,14 @@
     );
   }
 
+  /* Scoped to the flow: the stamp scales with the larger rows in Compare and
+     Guard, and leaves the one in the closing section at its own size. */
+  .flow-verdict .stamp,
+  .chk .stamp {
+    font-size: 0.7rem;
+    padding: 0.22rem 0.58rem;
+  }
+
   /* Step three: the check that stops a bad merge. Deliberately the same row
      as a verdict opposite - punch-card mark, name, leader, stamp - so the two
      evidence panes read as one component rather than two widgets. */
@@ -584,12 +657,12 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.34rem 0;
+    padding: 0.5rem 0;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 0.76rem;
+    font-size: 0.88rem;
     color: var(--muted);
   }
-  .chk svg { width: 11px; height: 11px; flex: none; color: var(--sc, var(--faint)); }
+  .chk svg { width: 13px; height: 13px; flex: none; color: var(--sc, var(--faint)); }
   .chk[data-s="ok"] { --sc: var(--ok); }
   .chk[data-s="gap"] { --sc: var(--gap); }
   .chk .n { flex-shrink: 0; }
@@ -602,11 +675,295 @@
     transform: translateY(-0.25em);
   }
 
-  /* The gaps between the cards. Empty by design - they hold the spacing the
-     connectors used to occupy. */
-  .flow-link { width: 54px; }
+  /* The gaps between the cards, holding the arrow the highlight crosses: a
+     hairline track, a chevron at the far end, and the spark that travels it. */
+  .flow-link {
+    position: relative;
+    width: 54px;
+  }
+  .fl-track,
+  .fl-spark {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    margin-top: -0.5px;
+  }
+  .fl-track {
+    background: rgba(255, 255, 255, 0.1);
+    transform-origin: left center;
+  }
+  .fl-spark {
+    background-image: linear-gradient(90deg, transparent 32%, var(--hl) 50%, transparent 68%);
+    background-size: 260% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--hl) 55%, transparent));
+    opacity: 0;
+  }
+  .fl-tip {
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    margin-top: -4.5px;
+    color: rgba(255, 255, 255, 0.22);
+  }
+
+  /* ------------------------------------------ how it works: the highlight */
+  /* One signal walks the row: it runs the outline of 01, crosses the arrow to
+     02, runs that, crosses to 03, then fades and starts over. Every piece is
+     the same animation on the same period with a different delay, so the card
+     phases and arrow phases abut exactly and the light is never in two places
+     at once. The delays include the reveal's run-in, which is why the loop
+     only begins once the evidence below has landed. */
+  .flow {
+    --cycle: 7.2s;     /* a full walk of the row, pause included */
+    --ring-t: 1.35s;   /* one card's outline */
+    --spark-t: 0.55s;  /* one arrow crossing */
+    --rev: 2.2s;       /* the reveal's run-in, before the walk starts */
+    --hl: var(--ok);
+  }
+  /* Each phase starts where the one before it ended, so the delays are that
+     sum rather than five loose numbers. The keyframes below are the one thing
+     still coupled by hand: their percentages are --ring-t and --spark-t as a
+     share of --cycle, so retiming those two needs the percentages moved with
+     them. */
+  .flow-stage[data-step="1"] { --at: var(--rev); }
+  .flow-link[data-step="1"] { --at: calc(var(--rev) + var(--ring-t)); }
+  .flow-stage[data-step="2"] { --at: calc(var(--rev) + var(--ring-t) + var(--spark-t)); }
+  .flow-link[data-step="2"] { --at: calc(var(--rev) + 2 * var(--ring-t) + var(--spark-t)); }
+  .flow-stage[data-step="3"] { --at: calc(var(--rev) + 2 * (var(--ring-t) + var(--spark-t))); }
+
+  .flow-stage::before,
+  .flow-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+  }
+  /* The band that runs the card's outline: a 1px ring cut out of a moving
+     gradient, so the bright part travels the border rather than the whole
+     border lighting at once. */
+  .flow-stage::before {
+    z-index: 2;
+    padding: 1px;
+    background-image: linear-gradient(90deg, transparent 34%, var(--hl) 50%, transparent 66%);
+    background-size: 260% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hl) 45%, transparent));
+  }
+  /* the lift the card takes while the highlight is on it */
+  .flow-stage::after {
+    z-index: 0;
+    background: radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--hl) 8%, transparent),
+      transparent 72%
+    );
+  }
+  .flow-head,
+  .flow-body { position: relative; z-index: 1; }
+
+  /* 18.75% of the 7.2s cycle is --ring-t; 7.6% is --spark-t. */
+  @keyframes flow-ring {
+    0% { opacity: 0; background-position: 100% 0; }
+    2.4% { opacity: 1; }
+    16.4% { opacity: 1; }
+    18.75% { opacity: 0; background-position: 0% 0; }
+    100% { opacity: 0; background-position: 0% 0; }
+  }
+  @keyframes flow-ring-v {
+    0% { opacity: 0; background-position: 0 100%; }
+    2.4% { opacity: 1; }
+    16.4% { opacity: 1; }
+    18.75% { opacity: 0; background-position: 0 0%; }
+    100% { opacity: 0; background-position: 0 0%; }
+  }
+  @keyframes flow-lift {
+    0% { opacity: 0; }
+    4% { opacity: 1; }
+    14% { opacity: 1; }
+    21% { opacity: 0; }
+    100% { opacity: 0; }
+  }
+  @keyframes flow-num {
+    0% { color: rgba(255, 255, 255, 0.24); }
+    4% { color: var(--hl); }
+    14% { color: var(--hl); }
+    21% { color: rgba(255, 255, 255, 0.24); }
+    100% { color: rgba(255, 255, 255, 0.24); }
+  }
+  @keyframes flow-spark {
+    0% { opacity: 1; background-position: 100% 0; }
+    7.6% { opacity: 1; background-position: 0% 0; }
+    7.7%, 100% { opacity: 0; }
+  }
+  @keyframes flow-spark-v {
+    0% { opacity: 1; background-position: 0 100%; }
+    7.6% { opacity: 1; background-position: 0 0%; }
+    7.7%, 100% { opacity: 0; }
+  }
+  @keyframes flow-tip {
+    0%, 2.5% { color: rgba(255, 255, 255, 0.22); }
+    7.6% { color: var(--hl); }
+    13% { color: rgba(255, 255, 255, 0.22); }
+    100% { color: rgba(255, 255, 255, 0.22); }
+  }
+
+  .flow.is-live .flow-stage::before { animation: flow-ring var(--cycle) linear var(--at) infinite; }
+  .flow.is-live .flow-stage::after { animation: flow-lift var(--cycle) ease-in-out var(--at) infinite; }
+  .flow.is-live .flow-n { animation: flow-num var(--cycle) ease-in-out var(--at) infinite; }
+  .flow.is-live .fl-spark { animation: flow-spark var(--cycle) linear var(--at) infinite; }
+  .flow.is-live .fl-tip { animation: flow-tip var(--cycle) linear var(--at) infinite; }
+
+  /* -------------------------------------------- how it works: the reveal */
+  /* Played once, when the section first comes into view: the sources land, the
+     arrow draws, the verdicts arrive a row at a time, then CI resolves from
+     running to stale. `is-armed` is what hides all of that beforehand, and it
+     is only ever set by script, so with no JS (or with reduced motion) the
+     section renders its finished state and nothing below moves. */
+  .flow.is-armed .flow-file,
+  .flow.is-armed .flow-verdict,
+  .flow.is-armed .chk { opacity: 0; }
+  .flow.is-armed .fl-track { transform: scaleX(0); }
+
+  @keyframes flow-land {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes flow-draw {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+  @keyframes flow-draw-v {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+
+  .flow.is-live .flow-file,
+  .flow.is-live .flow-verdict,
+  .flow.is-live .chk {
+    animation: flow-land 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--in, 0ms) both;
+  }
+  .flow.is-live .fl-track {
+    animation: flow-draw 460ms cubic-bezier(0.22, 1, 0.36, 1) var(--in, 0ms) both;
+  }
+
+  /* The last of these has to land inside --rev, or the highlight sets off
+     before the thing it is walking has finished arriving. */
+  .flow-stage[data-step="1"] .flow-file:nth-of-type(2) { --in: 110ms; }
+  .flow-link[data-step="1"] .fl-track { --in: 240ms; }
+  .flow-body > .flow-verdict:nth-child(2) { --in: 600ms; }
+  .flow-body > .flow-verdict:nth-child(3) { --in: 710ms; }
+  .flow-body > .flow-verdict:nth-child(4) { --in: 820ms; }
+  .flow-body > .flow-verdict:nth-child(5) { --in: 930ms; }
+  .flow-link[data-step="2"] .fl-track { --in: 1080ms; }
+  .flow-checks > .chk:nth-child(1) { --in: 1250ms; }
+  .flow-checks > .chk:nth-child(2) { --in: 1360ms; }
+  .flow-checks > .chk:nth-child(3) { --in: 1470ms; }
+  .flow-checks > .chk:nth-child(4) { --in: 1580ms; }
+
+  /* The check that resolves. Both stamps sit in one grid cell so the row is as
+     wide as the wider word from the start and nothing shifts when it flips. */
+  .chk-stamps {
+    display: grid;
+    justify-items: end;
+    flex-shrink: 0;
+  }
+  .chk-stamps > .stamp { grid-area: 1 / 1; }
+  .chk-stamps .stamp[data-s="run"] { opacity: 0; }
+  .stamp[data-s="run"] {
+    color: var(--faint);
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+  }
+
+  .flow.is-armed .chk[data-flip] .n { color: var(--muted); }
+  .flow.is-armed .chk[data-flip] svg { color: var(--faint); }
+  .flow.is-armed .chk-stamps .stamp[data-s="run"] { opacity: 1; }
+  .flow.is-armed .chk-stamps .stamp[data-s="gap"] { opacity: 0; }
+
+  @keyframes flip-name {
+    from { color: var(--muted); }
+    to { color: var(--ink); }
+  }
+  @keyframes flip-ico {
+    from { color: var(--faint); }
+    to { color: var(--gap); }
+  }
+  @keyframes flip-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes flip-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  .flow.is-live .chk[data-flip] .n { animation: flip-name 300ms ease 1900ms both; }
+  .flow.is-live .chk[data-flip] svg { animation: flip-ico 300ms ease 1900ms both; }
+  .flow.is-live .chk-stamps .stamp[data-s="run"] { animation: flip-out 300ms ease 1900ms both; }
+  .flow.is-live .chk-stamps .stamp[data-s="gap"] { animation: flip-in 300ms ease 1900ms both; }
+
   @media (max-width: 860px) {
-    .flow-link { width: auto; height: 1.2rem; }
+    /* Stacked, the same signal walks downward: the arrow, its spark, and the
+       ring sweep all turn through 90 degrees. */
+    .flow-link { width: auto; height: 2.4rem; }
+    .fl-track,
+    .fl-spark {
+      left: 50%;
+      right: auto;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      height: auto;
+      margin: 0 0 0 -0.5px;
+    }
+    .fl-track { transform-origin: center top; }
+    .fl-spark {
+      background-image: linear-gradient(180deg, transparent 32%, var(--hl) 50%, transparent 68%);
+      background-size: 100% 260%;
+      background-position: 0 100%;
+    }
+    .fl-tip {
+      right: auto;
+      left: 50%;
+      top: auto;
+      bottom: -1px;
+      margin: 0 0 0 -4.5px;
+      transform: rotate(90deg);
+    }
+    .flow-stage::before {
+      background-image: linear-gradient(180deg, transparent 34%, var(--hl) 50%, transparent 66%);
+      background-size: 100% 260%;
+      background-position: 0 100%;
+    }
+    .flow.is-armed .fl-track { transform: scaleY(0); }
+    .flow.is-live .fl-track { animation-name: flow-draw-v; }
+    .flow.is-live .fl-spark { animation-name: flow-spark-v; }
+    .flow.is-live .flow-stage::before { animation-name: flow-ring-v; }
+  }
+
+  /* Script already declines to arm the section under reduced motion; this is
+     the belt-and-braces half, in case the class is ever set another way. */
+  @media (prefers-reduced-motion: reduce) {
+    .flow .flow-file,
+    .flow .flow-verdict,
+    .flow .chk { opacity: 1; }
+    .flow .fl-track { transform: none; }
+    .flow .chk-stamps .stamp[data-s="run"] { opacity: 0; }
+    .flow .chk-stamps .stamp[data-s="gap"] { opacity: 1; }
+    .flow *,
+    .flow *::before,
+    .flow *::after { animation: none !important; }
   }
 
   /* ================================ what it works with: two in, one place */
@@ -1132,29 +1489,45 @@
     </div>
 
     <div class="flow">
-      <div class="flow-stage panel">
+      <div class="flow-stage panel" data-step="1">
         <div class="flow-head">
+          <span class="flow-n" aria-hidden="true">01</span>
           <h3>Read</h3>
           <p>Finds your OpenAPI spec, scans your tests. No configuration.</p>
         </div>
         <div class="flow-body">
-          <div class="flow-file" data-src="spec">
+          <div class="flow-file">
             <b>openapi.yaml <i>or</i> openapi.json</b>
             <span>POST /tasks</span>
+            <div class="ff-rows">
+              <div class="ff-row"><span class="c">201</span><span class="d">Task created</span></div>
+              <div class="ff-row"><span class="c">400</span><span class="d">Malformed body</span></div>
+              <div class="ff-row"><span class="c">401</span><span class="d">Missing bearer token</span></div>
+            </div>
           </div>
-          <div class="flow-file" data-src="test">
+          <div class="flow-file">
             <b><i>tasks</i>.test.ts <i>.tsx .js .jsx</i></b>
             <span>describe("POST /tasks")</span>
+            <div class="ff-rows">
+              <div class="ff-row"><span class="c">201</span><span class="d">it("creates a task")</span></div>
+              <div class="ff-row"><span class="c">400</span><span class="d">it("requires a title")</span></div>
+              <div class="ff-row"><span class="c">422</span><span class="d">it("rejects a past date")</span></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="flow-link" aria-hidden="true"></div>
+      <div class="flow-link" data-step="1" aria-hidden="true">
+        <span class="fl-track"></span>
+        <span class="fl-spark"></span>
+        <svg class="fl-tip" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 2.5L8 6l-4 3.5" /></svg>
+      </div>
 
-      <div class="flow-stage panel">
+      <div class="flow-stage panel" data-step="2">
         <div class="flow-head">
+          <span class="flow-n" aria-hidden="true">02</span>
           <h3>Compare</h3>
-          <p>Matches every documented response to the assertions that check it.</p>
+          <p>Matches every documented response to its assertions.</p>
         </div>
         <div class="flow-body">
           <div class="flow-key">
@@ -1188,10 +1561,15 @@
         </div>
       </div>
 
-      <div class="flow-link" aria-hidden="true"></div>
+      <div class="flow-link" data-step="2" aria-hidden="true">
+        <span class="fl-track"></span>
+        <span class="fl-spark"></span>
+        <svg class="fl-tip" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 2.5L8 6l-4 3.5" /></svg>
+      </div>
 
-      <div class="flow-stage panel">
+      <div class="flow-stage panel" data-step="3">
         <div class="flow-head">
+          <span class="flow-n" aria-hidden="true">03</span>
           <h3>Guard</h3>
           <p>The report is one committed file. CI fails when it goes stale.</p>
         </div>
@@ -1204,13 +1582,27 @@
             <div class="chk" data-s="ok"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.4 6.4l2.4 2.4L9.6 3.6" /></svg><span class="n">build</span><span class="lead"></span><span class="stamp" data-s="ok">Passed</span></div>
             <div class="chk" data-s="ok"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.4 6.4l2.4 2.4L9.6 3.6" /></svg><span class="n">lint</span><span class="lead"></span><span class="stamp" data-s="ok">Passed</span></div>
             <div class="chk" data-s="ok"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.4 6.4l2.4 2.4L9.6 3.6" /></svg><span class="n">test</span><span class="lead"></span><span class="stamp" data-s="ok">Passed</span></div>
-            <div class="chk" data-s="gap"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.2 3.2l5.6 5.6M8.8 3.2l-5.6 5.6" /></svg><span class="n">specproof</span><span class="lead"></span><span class="stamp" data-s="gap">Stale</span></div>
+            <div class="chk" data-s="gap" data-flip><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.2 3.2l5.6 5.6M8.8 3.2l-5.6 5.6" /></svg><span class="n">specproof</span><span class="lead"></span><span class="chk-stamps"><span class="stamp" data-s="run">Running</span><span class="stamp" data-s="gap">Stale</span></span></div>
           </div>
         </div>
       </div>
     </div>
   </div>
 </section>
+
+<script>
+  // Armed here rather than with the rest of the script at the end of the body:
+  // the pre-reveal state has to be in place before this section first paints,
+  // or the evidence shows up and then hides itself to animate back in. Nothing
+  // is armed under reduced motion, which leaves the finished state on screen
+  // and, since every animation is gated on these classes, the section still.
+  (function () {
+    var flow = document.querySelector('#how .flow');
+    if (!flow || !('IntersectionObserver' in window)) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    flow.classList.add('is-armed');
+  })();
+</script>
 
 <section id="expects">
   <div class="wrap">
@@ -1525,6 +1917,29 @@ jobs:
       });
     });
   });
+
+  // How it works: play the reveal the first time the row is on screen, which
+  // is also what starts the highlight walking it (both are CSS, keyed off
+  // `is-live`). Only ever runs against a section the arming script above
+  // accepted, so reduced motion and no-JS both keep the static state.
+  (function () {
+    var flow = document.querySelector('#how .flow.is-armed');
+    if (!flow) return;
+
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          flow.classList.add('is-live');
+          io.disconnect();
+        });
+      },
+      // A little into view rather than at the very edge, so the sequence does
+      // not play out above the fold on the way past.
+      { threshold: 0.15, rootMargin: '0px 0px -12% 0px' }
+    );
+    io.observe(flow);
+  })();
 
   // Package-manager tabs: one tab controls every pane it names in aria-controls
   // (the install and run panes in Get started, the command chip in the closing
