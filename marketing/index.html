@@ -74,6 +74,12 @@
     text-transform: uppercase;
     color: var(--faint);
   }
+  /* Same label slot, set in ordinary sentence case: used where the label reads
+     as a word rather than a marker. */
+  .micro.cap {
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -973,8 +979,24 @@
      the shape a test file has to have. */
   .works { display: block; }
 
-  .works-fw { display: flex; flex-direction: column; }
+  /* The card keeps its own height through a swap (set in script, cleared
+     after) so the page below never jumps while the panels cross. */
+  .works-fw {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
   .fw-panel[hidden] { display: none; }
+  /* The outgoing panel leaves the flow, so the incoming one alone decides the
+     height the card is animating towards. */
+  .fw-panel.is-out {
+    position: absolute;
+    inset: 0 0 auto 0;
+    width: 100%;
+    pointer-events: none;
+    animation: fw-leave 240ms ease both;
+  }
 
   .fw-bar {
     display: flex;
@@ -1018,24 +1040,124 @@
     min-width: 100%;
   }
   .fw-code .src { white-space: pre; }
+  /* Both spans are positioned so they paint over the ::before highlight,
+     which is itself positioned and comes first in paint order. */
+  .fw-code .src,
+  .fw-code .rd { position: relative; }
   .fw-code .ln[data-read] {
-    background: color-mix(in srgb, var(--ok) 7%, transparent);
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ok) 55%, transparent);
-    border-radius: 3px;
-    /* Cancelled by the matching negative margin, so a marked line keeps the
-       exact indentation of the lines around it. */
+    position: relative;
+    /* Cancelled by the matching negative margins, so a marked line keeps the
+       exact indentation of the lines around it and the tag stays pinned where
+       the unmarked rows end: the highlight is what grows, past both. */
     padding-left: 0.5rem;
     margin-left: -0.5rem;
+    padding-right: 0.65rem;
+    margin-right: -0.65rem;
+  }
+  /* A layer rather than a background on the line itself: only a transform can
+     be wiped across, and only a pseudo-element can carry one without moving
+     the code sitting on top of it. */
+  .fw-code .ln[data-read]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--ok) 7%, transparent);
+    transform-origin: left center;
   }
   .fw-code .rd {
     margin-left: auto;
     flex: none;
     font-family: var(--sans);
-    font-size: 0.6rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    letter-spacing: 0.01em;
     color: var(--ok);
+  }
+
+  /* The card's bottom edge doubles as the dwell timer for the auto-advance:
+     the fill runs the width of the card and the next runner takes over at the
+     moment it lands on the right edge, so the swap is something the reader can
+     see coming rather than something that happens to them. Built in script,
+     which leaves a no-JS page with a plain card edge. */
+  .fw-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.05);
+    pointer-events: none;
+    transition: opacity 320ms ease;
+  }
+  /* An explicit pick ends the cycle for good, so a bar still counting down to
+     a swap that is never coming would be lying. */
+  .fw-timer.is-done { opacity: 0; }
+  .fw-timer i {
+    display: block;
+    height: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ok) 30%, transparent),
+      var(--ok)
+    );
+  }
+
+  /* ---- the swap itself ---------------------------------------------- */
+  /* The incoming panel is not faded in as a block. Its rows land one after
+     the next, and the two rows SpecProof actually reads are then wiped in
+     under the code and tagged: the animation says what the card says. */
+  @keyframes fw-line {
+    from { opacity: 0; transform: translateX(var(--fw-dx, 18px)); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fw-wipe {
+    from { opacity: 0; transform: scaleX(0); }
+    to { opacity: 1; transform: scaleX(1); }
+  }
+  @keyframes fw-tag {
+    from { opacity: 0; transform: translateX(7px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fw-leave {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateX(calc(var(--fw-dx, 18px) * -0.55)); }
+  }
+
+  /* Four beats, on the cadence the How it works cards keep: 500ms each at the
+     same easing, handed over every 110ms. The bar lands, the code lands, then
+     the two rows SpecProof reads are wiped in one after the other and tagged.
+     Staggering four units rather than every line is what keeps it in step with
+     that section, which never walks more than four things either. */
+  .fw-panel.is-in .fw-bar,
+  .fw-panel.is-in .fw-code {
+    animation: fw-line 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms) both;
+  }
+  .fw-panel.is-in .fw-bar { --d: 0ms; }
+  .fw-panel.is-in .fw-code { --d: 110ms; }
+
+  /* Beats three and four. --d is set on the row, so the wipe under it and the
+     tag beside it both read it without being addressed separately. */
+  .fw-panel.is-in .fw-code .ln:nth-child(3) { --d: 220ms; }
+  .fw-panel.is-in .fw-code .ln:nth-child(5) { --d: 330ms; }
+  .fw-panel.is-in .fw-code .ln[data-read]::before {
+    animation: fw-wipe 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--d) both;
+  }
+  .fw-panel.is-in .fw-code .rd {
+    animation: fw-tag 300ms ease calc(var(--d) + 120ms) both;
+  }
+
+  /* Script already skips the choreography under reduced motion; this is the
+     belt to that braces, and also covers the pill and the height. */
+  @media (prefers-reduced-motion: reduce) {
+    .fw-ink { transition: none; }
+    .works-fw { transition: none; }
+    .fw-panel.is-in *,
+    .fw-panel.is-in *::before,
+    .fw-panel.is-out { animation: none !important; }
   }
 
   /* code panels */
@@ -1079,6 +1201,7 @@
      in "What it works with", which drives only its own card. */
   .pm-tabs,
   .fw-tabs {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem;
@@ -1102,6 +1225,31 @@
   .fw-tabs button:hover { color: var(--ink); }
   .pm-tabs button:focus-visible,
   .fw-tabs button:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
+  /* The framework row swaps its per-button background for one pill that
+     travels between tabs, so the row reads as a single control being moved
+     rather than four lights switching. Added by script and gated on .has-ink,
+     which leaves the plain aria-selected styling below as the no-JS state. */
+  .fw-ink {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: 6px;
+    /* Same face as the package-manager tabs' selected chip, so a selected tab
+       reads identically everywhere on the page; only the travel is different. */
+    background: var(--raise);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    /* Slightly past 1 on the way out: the pill overshoots and settles, which
+       is what makes the move read as thrown rather than faded. */
+    transition:
+      transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1),
+      width 420ms cubic-bezier(0.34, 1.4, 0.5, 1),
+      height 420ms cubic-bezier(0.34, 1.4, 0.5, 1);
+    pointer-events: none;
+  }
+  .fw-tabs.has-ink button { position: relative; z-index: 1; }
+  .fw-tabs.has-ink button[aria-selected="true"] { background: none; box-shadow: none; }
+
   .pm-tabs button[aria-selected="true"],
   .fw-tabs button[aria-selected="true"] {
     color: var(--ok);
@@ -1158,7 +1306,7 @@
   .pm-note .c2 { font-family: var(--mono); color: var(--ok); }
 
   /* ================================================================ cta */
-  /* The closing act. Not one of the flat `.panel` cards: a narrower, softer
+  /* The closing act. Not one of the flat `.panel` cards: a softer
      vessel that lifts off the page — big radius, a verdict-green rim, a wash
      of green falling from the top edge and a second bloom rising from below,
      over a deep drop shadow. The type steps up toward hero scale so the last
@@ -1167,8 +1315,6 @@
   .cta-end {
     position: relative;
     overflow: hidden;
-    max-width: 47.5rem;
-    margin: 0 auto;
     padding: 4rem 2.5rem 4.25rem;
     text-align: center;
     border-radius: 28px;
@@ -1542,9 +1688,9 @@
           <div class="fw-code">
             <div class="ln"><span class="src"><span class="dim">import { describe, it, expect } from "vitest";</span></span></div>
             <div class="ln"><span class="src"> </span></div>
-            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
             <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
-            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">Response</span></div>
             <div class="ln"><span class="src">  });</span></div>
             <div class="ln"><span class="src">});</span></div>
           </div>
@@ -1557,9 +1703,9 @@
           <div class="fw-code">
             <div class="ln"><span class="src"><span class="dim">import request from "supertest";</span></span></div>
             <div class="ln"><span class="src"> </span></div>
-            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
             <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
-            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">Response</span></div>
             <div class="ln"><span class="src">  });</span></div>
             <div class="ln"><span class="src">});</span></div>
           </div>
@@ -1572,9 +1718,9 @@
           <div class="fw-code">
             <div class="ln"><span class="src"><span class="dim">import { describe, test, expect } from "bun:test";</span></span></div>
             <div class="ln"><span class="src"> </span></div>
-            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
             <div class="ln"><span class="src">  test(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
-            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">Response</span></div>
             <div class="ln"><span class="src">  });</span></div>
             <div class="ln"><span class="src">});</span></div>
           </div>
@@ -1587,9 +1733,9 @@
           <div class="fw-code">
             <div class="ln"><span class="src"><span class="dim">// describe, it and expect are globals</span></span></div>
             <div class="ln"><span class="src"> </span></div>
-            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
             <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
-            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toEqual(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toEqual(201)</span>;</span><span class="rd">Response</span></div>
             <div class="ln"><span class="src">  });</span></div>
             <div class="ln"><span class="src">});</span></div>
           </div>
@@ -1616,7 +1762,7 @@
     <div class="start-steps">
       <div class="code-shell panel">
         <div class="bar">
-          <span class="micro">Install</span>
+          <span class="micro cap">Install</span>
         </div>
         <div class="pm-panel" id="pm-install-bun" role="tabpanel" aria-labelledby="pm-tab-bun" hidden>
           <div class="pm-cmd">
@@ -1647,7 +1793,7 @@
       <div>
         <div class="code-shell panel">
           <div class="bar">
-            <span class="micro">Run</span>
+            <span class="micro cap">Run</span>
           </div>
           <div class="pm-panel" id="pm-run-bun" role="tabpanel" aria-labelledby="pm-tab-bun" hidden>
             <div class="pm-cmd">
@@ -1674,9 +1820,7 @@
             </div>
           </div>
         </div>
-        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>. Pass <code>--port</code> to host it somewhere else, or
-          <code>--spec</code> when your OpenAPI file lives somewhere the
-          shallowest <code>openapi*</code> / <code>swagger*</code> lookup will not find it.</p>
+        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>.</p>
       </div>
     </div>
   </div>
@@ -1866,26 +2010,220 @@ jobs:
   // example in". Every panel stays in the DOM, so no-JS renders the first one.
   (function () {
     var row = document.querySelector('.fw-tabs');
-    if (!row) return;
+    var card = document.querySelector('.works-fw');
+    if (!row || !card) return;
     var tabs = Array.prototype.slice.call(row.querySelectorAll('[role="tab"]'));
+    if (!tabs.length) return;
 
-    function select(tab, focus) {
+    var still =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function paneOf(tab) {
+      return document.getElementById(tab.getAttribute('aria-controls'));
+    }
+    var panes = tabs.map(paneOf);
+
+    // One pill that travels, rather than a background switching on and off in
+    // four places. Built here so the no-JS page keeps the plain selected state.
+    var ink = document.createElement('span');
+    ink.className = 'fw-ink';
+    ink.setAttribute('aria-hidden', 'true');
+    row.appendChild(ink);
+    row.classList.add('has-ink');
+
+    // offsetTop and height as well as left: the row wraps on narrow screens,
+    // where the pill has to change rows and not just slide along one.
+    function moveInk(tab, instant) {
+      if (instant) ink.style.transition = 'none';
+      ink.style.transform = 'translate(' + tab.offsetLeft + 'px, ' + tab.offsetTop + 'px)';
+      ink.style.width = tab.offsetWidth + 'px';
+      ink.style.height = tab.offsetHeight + 'px';
+      if (instant) {
+        void ink.offsetWidth;
+        ink.style.transition = '';
+      }
+    }
+
+    var current =
+      tabs.filter(function (t) { return t.getAttribute('aria-selected') === 'true'; })[0] ||
+      tabs[0];
+    moveInk(current, true);
+    window.addEventListener('resize', function () { moveInk(current, true); });
+
+    var timers = [];
+    function clearTimers() {
+      timers.forEach(clearTimeout);
+      timers = [];
+    }
+
+    function select(tab, focus, forced) {
+      if (focus) tab.focus();
+      if (tab === current) return;
+
+      var from = paneOf(current);
+      var to = paneOf(tab);
+      // Auto-advance forces forward, so wrapping past the last tab keeps
+      // travelling the same way instead of snapping back across the row.
+      var forward = forced ? forced > 0 : tabs.indexOf(tab) > tabs.indexOf(current);
+      current = tab;
+
       tabs.forEach(function (other) {
         var on = other === tab;
         other.setAttribute('aria-selected', String(on));
         other.tabIndex = on ? 0 : -1;
-        var pane = document.getElementById(other.getAttribute('aria-controls'));
-        if (pane) pane.hidden = !on;
       });
-      if (focus) tab.focus();
+      moveInk(tab);
+
+      if (!from || !to) return;
+      if (still) {
+        from.hidden = true;
+        to.hidden = false;
+        return;
+      }
+
+      // A fast second click lands mid-swap, so strand nothing: every panel that
+      // is neither leaving nor arriving goes straight back to hidden and clean.
+      clearTimers();
+      panes.forEach(function (pane) {
+        if (!pane || pane === from || pane === to) return;
+        pane.classList.remove('is-in', 'is-out');
+        pane.hidden = true;
+      });
+
+      // Which way the rows fly in from, so the motion agrees with the tab that
+      // was just clicked instead of always going the same direction.
+      card.style.setProperty('--fw-dx', (forward ? 18 : -18) + 'px');
+
+      var from_h = card.offsetHeight;
+      from.classList.remove('is-in');
+      from.classList.add('is-out');
+      to.hidden = false;
+      to.classList.remove('is-in');
+      void to.offsetWidth; // restarts the stagger when the same panel returns
+      to.classList.add('is-in');
+
+      // Read once the outgoing panel is out of flow: the incoming one alone
+      // decides the height, and transforms do not move it.
+      var to_h = to.offsetHeight;
+      card.style.height = from_h + 'px';
+      void card.offsetWidth;
+      card.style.height = to_h + 'px';
+
+      timers.push(setTimeout(function () {
+        from.classList.remove('is-out');
+        from.hidden = true;
+      }, 260));
+      timers.push(setTimeout(function () {
+        card.style.height = '';
+      }, 360));
+      // Cleared only once the last tag has landed, or removing the class would
+      // cut the choreography short.
+      timers.push(setTimeout(function () {
+        to.classList.remove('is-in');
+      }, 720));
     }
 
+    // The reveal runs at the How it works cadence, but the dwell cannot: those
+    // cards walk four-word verdict rows, this one is seven lines of code. The
+    // last beat settles at 830ms, so this leaves roughly three seconds of still
+    // card to actually read before the next runner takes over.
+    var ADVANCE_MS = 4000;
+    var picked = false;
+
+    // The dwell is a rAF clock rather than an interval because the bar along the
+    // card's bottom edge is the same countdown drawn: one elapsed figure feeds
+    // both, so the fill cannot drift away from the swap it is predicting. It
+    // also makes a pause a real pause, holding the remaining time instead of
+    // starting the four seconds over.
+    var track = null;
+    var fill = null;
+    if (!still) {
+      track = document.createElement('span');
+      track.className = 'fw-timer';
+      track.setAttribute('aria-hidden', 'true');
+      fill = document.createElement('i');
+      track.appendChild(fill);
+      card.appendChild(track);
+    }
+
+    var elapsed = 0;
+    var last = 0;
+    var raf = null;
+
+    function paint() {
+      if (fill) fill.style.transform = 'scaleX(' + Math.min(elapsed / ADVANCE_MS, 1) + ')';
+    }
+
+    function frame(now) {
+      if (!raf) return;
+      elapsed += now - last;
+      last = now;
+      if (elapsed >= ADVANCE_MS) {
+        elapsed = 0;
+        select(tabs[(tabs.indexOf(current) + 1) % tabs.length], false, 1);
+      }
+      paint();
+      raf = requestAnimationFrame(frame);
+    }
+
+    function stopAuto(reset) {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      if (reset) {
+        elapsed = 0;
+        paint();
+      }
+    }
+    function startAuto() {
+      if (raf || picked || still) return;
+      last = performance.now();
+      raf = requestAnimationFrame(frame);
+    }
+    // Left where it stands rather than wound back to zero: the bar is fading
+    // out, and collapsing it on the way would read as the timer being reset.
+    function endCycle() {
+      picked = true;
+      stopAuto();
+      if (track) track.classList.add('is-done');
+    }
+
+    // Only while the card is actually on screen: a cycle running in a scrolled
+    // past section is work nobody sees, and it would be mid-sequence on return.
+    if (!still && 'IntersectionObserver' in window) {
+      new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) startAuto();
+            else stopAuto(true);
+          });
+        },
+        { threshold: 0.3 }
+      ).observe(card);
+    }
+
+    // Reading one tab should not be interrupted by the next one arriving.
+    ['mouseenter', 'focusin'].forEach(function (type) {
+      function hold() { stopAuto(); }
+      card.addEventListener(type, hold);
+      row.addEventListener(type, hold);
+    });
+    ['mouseleave', 'focusout'].forEach(function (type) {
+      card.addEventListener(type, startAuto);
+      row.addEventListener(type, startAuto);
+    });
+
     tabs.forEach(function (tab, i) {
-      tab.addEventListener('click', function () { select(tab); });
+      tab.addEventListener('click', function () {
+        // An explicit pick ends the cycle for good: having chosen a runner, the
+        // reader should not have it taken off them a second later.
+        endCycle();
+        select(tab);
+      });
       tab.addEventListener('keydown', function (event) {
         var step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
         if (!step) return;
         event.preventDefault();
+        endCycle();
         select(tabs[(i + step + tabs.length) % tabs.length], true);
       });
     });
