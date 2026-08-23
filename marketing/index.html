@@ -74,6 +74,12 @@
     text-transform: uppercase;
     color: var(--faint);
   }
+  /* Same label slot, set in ordinary sentence case: used where the label reads
+     as a word rather than a marker. */
+  .micro.cap {
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -407,33 +413,13 @@
     color: var(--muted);
   }
 
-  /* how it works: three cards */
-  .steps {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.2rem;
-  }
-  @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
-  .step { padding: 1.7rem 1.8rem 1.9rem; }
-  .step .icon {
-    display: block;
-    width: 22px;
-    height: 22px;
-    color: var(--ok);
-    margin-bottom: 1rem;
-  }
-  .step h3 {
-    margin: 0 0 0.45rem;
-    font-size: 1.2rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-  .step p { margin: 0; font-size: 0.95rem; line-height: 1.7; color: var(--muted); }
   /* One inline-code token for every flag, filename, or identifier that appears
-     inside prose. Block code (.pm-cmd, .sup-code pre) is styled on its own. */
-  .step code,
+     inside prose. Block code (.pm-cmd, .fw-code) is styled on its own.
+     Kept here because the block this replaces owned it: .sec-sub code and
+     .pm-note code are still used by the CI and Get started sections. */
+  .flow-head code,
   .sec-sub code,
-  .sup code,
+  .works code,
   .pm-note code {
     font-family: var(--mono);
     font-size: 0.85em;
@@ -443,94 +429,736 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
     padding: 0.15em 0.4em;
   }
+  .works code, .flow-head code { white-space: nowrap; }
 
-  /* what it works with: three numbered panels, one shape, read top to bottom */
-  .support {
+  /* ============================================ how it works: three steps */
+  /* Three cards, each carrying its own evidence below a hairline. The gaps
+     between them are real grid columns rather than a gap value, so the cards
+     keep the spacing they had when connectors sat in them. */
+  .flow {
+    /* A floor under the evidence panes, so a stage with little to show still
+       carries a band rather than a strip. What actually levels the three is
+       the shared row below, not this number. */
+    --flow-body: 16.5rem;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.2rem;
+    grid-template-columns: minmax(0, 1.05fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+    /* Two rows - heads, then evidence - that every stage opts into via
+       subgrid. The hairline between them is the row boundary itself, so it
+       lands at one height across the row however the copy above it wraps or
+       however tall the evidence below it grows. */
+    grid-template-rows: auto auto;
+    align-items: stretch;
+    gap: 0;
+  }
+  @media (max-width: 860px) {
+    /* Stacked, each stage gets its own pair of rows and sizes itself: there
+       is no longer a row to level against. */
+    .flow { grid-template-columns: minmax(0, 1fr); }
   }
 
-  .sup { padding: 1.6rem 1.8rem 1.75rem; }
-  .sup-head .micro { display: block; margin-bottom: 0.6rem; }
-  .sup h3 {
-    margin: 0;
-    font-size: 1.18rem;
+  .flow-stage {
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    /* the highlight's ring and lift hang off this box */
+    position: relative;
+  }
+  /* the connectors sit beside a two-row stage, so they span the pair too */
+  .flow-link { grid-row: span 2; }
+  .flow-head { position: relative; padding: 1.6rem 1.5rem 1.2rem; }
+  .flow-head h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1.2rem;
     font-weight: 600;
     letter-spacing: -0.02em;
+    /* keeps the one-word heading clear of the step numeral opposite it */
+    padding-right: 2.8rem;
   }
-  /* Shared by the two input panels and the example panel, so all three open
-     the same way: number, title, one line of what the piece is for. */
-  .sup-lede {
-    margin: 0.45rem 0 0;
-    font-size: 0.95rem;
-    line-height: 1.7;
-    color: var(--muted);
+  /* The step number, sized to sit in the heading's own row so nothing below
+     has to reserve space for it. Faint until the highlight reaches this card. */
+  .flow-n {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: rgba(255, 255, 255, 0.24);
+    user-select: none;
   }
-  /* Numbers sit in the gutter so the two items line up under the lede above. */
-  .sup-list {
-    margin: 0.75rem 0 0;
-    padding: 0;
-    list-style: none;
-    counter-reset: sup-item;
+  .flow-head p { margin: 0; font-size: 0.95rem; line-height: 1.7; color: var(--muted); }
+
+  /* The panel's own picture of what the stage does, hung below a hairline so
+     every stage opens the same way: label, name, sentence, evidence. */
+  .flow-body {
+    min-height: var(--flow-body);
+    padding: 1.15rem 1.5rem 1.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.5;
     display: grid;
-    gap: 0.4rem;
-    font-size: 0.95rem;
-    line-height: 1.7;
+    align-content: center;
+    gap: 0.55rem;
+  }
+  @media (max-width: 860px) {
+    /* Stacked, the panels go full-bleed but the evidence should not: an
+       uncapped row drags its dotted leader across the whole viewport. */
+    .flow-body { min-height: 0; max-width: 38rem; }
+  }
+
+  /* The two source files feeding the audit. No accent rail: colour on this
+     page means a verdict, and neither of these is one. */
+  .flow-file {
+    display: grid;
+    gap: 0.18rem;
+    padding: 0.65rem 0.7rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    min-width: 0;
+  }
+  .flow-file b { font-weight: 500; font-size: 0.74rem; }
+  /* Muted qualifier inside a filename label. Whatever varies recedes - the
+     name you pick, the other extensions accepted, the "or" between two spec
+     formats - so what is actually required stays the bright part. */
+  .flow-file b i { font-style: normal; font-weight: 400; color: var(--faint); }
+  /* Direct child only: the status rows below carry their own colour. */
+  .flow-file > span {
+    color: var(--faint);
+    font-size: 0.7rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* What each file actually carries for that one operation: the statuses the
+     spec documents, and the assertion that covers each. Listed in the order
+     Compare reads them, sharing .flow-verdict's fixed code column, so a
+     status can be tracked straight across the three cards - and so the gap
+     Compare stamps (401 documented, no it() opposite) and the undocumented
+     422 (an it() with no line opposite) are already visible here. */
+  .ff-rows {
+    display: grid;
+    gap: 0.12rem;
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .ff-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    font-size: 0.7rem;
+    min-width: 0;
+  }
+  .ff-row .c {
+    flex: none;
+    width: 2.1rem;
+    font-variant-numeric: tabular-nums;
     color: var(--muted);
   }
-  .sup-list li {
-    counter-increment: sup-item;
-    position: relative;
-    padding-left: 1.65rem;
+  .ff-row .d {
+    min-width: 0;
+    color: var(--faint);
+    overflow-x: auto;
+    white-space: nowrap;
   }
-  .sup-list li::before {
-    content: counter(sup-item);
+
+  /* The CI workflow the checks below belong to, using the same chip the
+     operation key opposite uses - a label, not a verb, so it takes a neutral
+     hue rather than borrowing a method colour. */
+  .method[data-m="ci"] { --mc: var(--muted); }
+
+  /* the joined operation key, and the verdicts that come out of it */
+  .flow-key {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.15rem;
+  }
+  /* Compare and Guard carry four short rows against Read's two dense file
+     cards, which sets the row of panels' height. Their type runs a step
+     larger than Read's so the evidence fills the taller panel instead of
+     floating in it. */
+  .flow-key .method { font-size: 0.72rem; }
+  .flow-key .k {
+    font-size: 0.85rem;
+    letter-spacing: -0.01em;
+  }
+  .flow-key .k em { font-style: normal; color: var(--faint); }
+
+  .flow-verdict {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .flow-verdict .code {
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+    width: 2.1rem;
+    flex-shrink: 0;
+  }
+  .flow-verdict .lead {
+    flex: 1 1 0.75rem;
+    min-width: 0.75rem;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.16);
+    transform: translateY(-0.25em);
+  }
+
+  /* The verdict stamp, matched to the product's own .sp-stamp in
+     app/proof.css so the marketing page and the report render the same
+     component: square corners, a real 1px border rather than an inset ring,
+     dashed for a gap, and the same 45-degree hatch the undocumented
+     punch-card mark uses. */
+  .stamp {
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.5rem;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .stamp[data-s="ok"] {
+    color: var(--ok);
+    border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+    background: color-mix(in srgb, var(--ok) 8%, transparent);
+  }
+  .stamp[data-s="gap"] {
+    color: var(--gap);
+    border: 1px dashed color-mix(in srgb, var(--gap) 55%, transparent);
+  }
+  .stamp[data-s="undoc"] {
+    color: var(--undoc);
+    border: 1px solid color-mix(in srgb, var(--undoc) 45%, transparent);
+    background: repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--undoc) 10%, transparent) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  /* Scoped to the flow: the stamp scales with the larger rows in Compare and
+     Guard, and leaves the one in the closing section at its own size. */
+  .flow-verdict .stamp,
+  .chk .stamp {
+    font-size: 0.7rem;
+    padding: 0.22rem 0.58rem;
+  }
+
+  /* Step three: the check that stops a bad merge. Deliberately the same row
+     as a verdict opposite - punch-card mark, name, leader, stamp - so the two
+     evidence panes read as one component rather than two widgets. */
+  /* The gap matters: Compare's verdict rows are direct children of
+     .flow-body and inherit its gap, so this list has to carry the same one
+     or the two four-row lists sit at different pitches. */
+  .flow-checks { display: grid; gap: 0.55rem; }
+  .chk {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+  .chk svg { width: 13px; height: 13px; flex: none; color: var(--sc, var(--faint)); }
+  .chk[data-s="ok"] { --sc: var(--ok); }
+  .chk[data-s="gap"] { --sc: var(--gap); }
+  .chk .n { flex-shrink: 0; }
+  /* The failing check is the one being pointed at, so it alone gets full ink. */
+  .chk[data-s="gap"] .n { color: var(--ink); }
+  .chk .lead {
+    flex: 1 1 0.75rem;
+    min-width: 0.75rem;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.16);
+    transform: translateY(-0.25em);
+  }
+
+  /* The gaps between the cards, holding the arrow the highlight crosses: a
+     hairline track, a chevron at the far end, and the spark that travels it. */
+  .flow-link {
+    position: relative;
+    width: 54px;
+  }
+  .fl-track,
+  .fl-spark {
     position: absolute;
     left: 0;
-    top: 0.1em;
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: var(--ok);
+    right: 0;
+    top: 50%;
+    height: 1px;
+    margin-top: -0.5px;
   }
-  .sup-list + .sup-lede { margin-top: 0.85rem; }
+  .fl-track {
+    background: rgba(255, 255, 255, 0.1);
+    transform-origin: left center;
+  }
+  .fl-spark {
+    background-image: linear-gradient(90deg, transparent 32%, var(--hl) 50%, transparent 68%);
+    background-size: 260% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--hl) 55%, transparent));
+    opacity: 0;
+  }
+  .fl-tip {
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    margin-top: -4.5px;
+    color: rgba(255, 255, 255, 0.22);
+  }
 
-  .sup dl {
-    margin: 1.35rem 0 0;
-    padding-top: 1.35rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  /* ------------------------------------------ how it works: the highlight */
+  /* One signal walks the row: it runs the outline of 01, crosses the arrow to
+     02, runs that, crosses to 03, then fades and starts over. Every piece is
+     the same animation on the same period with a different delay, so the card
+     phases and arrow phases abut exactly and the light is never in two places
+     at once. The delays include the reveal's run-in, which is why the loop
+     only begins once the evidence below has landed. */
+  .flow {
+    --cycle: 7.2s;     /* a full walk of the row, pause included */
+    --ring-t: 1.35s;   /* one card's outline */
+    --spark-t: 0.55s;  /* one arrow crossing */
+    --rev: 2.2s;       /* the reveal's run-in, before the walk starts */
+    --hl: var(--ok);
+  }
+  /* Each phase starts where the one before it ended, so the delays are that
+     sum rather than five loose numbers. The keyframes below are the one thing
+     still coupled by hand: their percentages are --ring-t and --spark-t as a
+     share of --cycle, so retiming those two needs the percentages moved with
+     them. */
+  .flow-stage[data-step="1"] { --at: var(--rev); }
+  .flow-link[data-step="1"] { --at: calc(var(--rev) + var(--ring-t)); }
+  .flow-stage[data-step="2"] { --at: calc(var(--rev) + var(--ring-t) + var(--spark-t)); }
+  .flow-link[data-step="2"] { --at: calc(var(--rev) + 2 * var(--ring-t) + var(--spark-t)); }
+  .flow-stage[data-step="3"] { --at: calc(var(--rev) + 2 * (var(--ring-t) + var(--spark-t))); }
+
+  .flow-stage::before,
+  .flow-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+  }
+  /* The band that runs the card's outline: a 1px ring cut out of a moving
+     gradient, so the bright part travels the border rather than the whole
+     border lighting at once. */
+  .flow-stage::before {
+    z-index: 2;
+    padding: 1px;
+    background-image: linear-gradient(90deg, transparent 34%, var(--hl) 50%, transparent 66%);
+    background-size: 260% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hl) 45%, transparent));
+  }
+  /* the lift the card takes while the highlight is on it */
+  .flow-stage::after {
+    z-index: 0;
+    background: radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--hl) 8%, transparent),
+      transparent 72%
+    );
+  }
+  .flow-head,
+  .flow-body { position: relative; z-index: 1; }
+
+  /* 18.75% of the 7.2s cycle is --ring-t; 7.6% is --spark-t. */
+  @keyframes flow-ring {
+    0% { opacity: 0; background-position: 100% 0; }
+    2.4% { opacity: 1; }
+    16.4% { opacity: 1; }
+    18.75% { opacity: 0; background-position: 0% 0; }
+    100% { opacity: 0; background-position: 0% 0; }
+  }
+  @keyframes flow-ring-v {
+    0% { opacity: 0; background-position: 0 100%; }
+    2.4% { opacity: 1; }
+    16.4% { opacity: 1; }
+    18.75% { opacity: 0; background-position: 0 0%; }
+    100% { opacity: 0; background-position: 0 0%; }
+  }
+  @keyframes flow-lift {
+    0% { opacity: 0; }
+    4% { opacity: 1; }
+    14% { opacity: 1; }
+    21% { opacity: 0; }
+    100% { opacity: 0; }
+  }
+  @keyframes flow-num {
+    0% { color: rgba(255, 255, 255, 0.24); }
+    4% { color: var(--hl); }
+    14% { color: var(--hl); }
+    21% { color: rgba(255, 255, 255, 0.24); }
+    100% { color: rgba(255, 255, 255, 0.24); }
+  }
+  @keyframes flow-spark {
+    0% { opacity: 1; background-position: 100% 0; }
+    7.6% { opacity: 1; background-position: 0% 0; }
+    7.7%, 100% { opacity: 0; }
+  }
+  @keyframes flow-spark-v {
+    0% { opacity: 1; background-position: 0 100%; }
+    7.6% { opacity: 1; background-position: 0 0%; }
+    7.7%, 100% { opacity: 0; }
+  }
+  @keyframes flow-tip {
+    0%, 2.5% { color: rgba(255, 255, 255, 0.22); }
+    7.6% { color: var(--hl); }
+    13% { color: rgba(255, 255, 255, 0.22); }
+    100% { color: rgba(255, 255, 255, 0.22); }
+  }
+
+  .flow.is-live .flow-stage::before { animation: flow-ring var(--cycle) linear var(--at) infinite; }
+  .flow.is-live .flow-stage::after { animation: flow-lift var(--cycle) ease-in-out var(--at) infinite; }
+  .flow.is-live .flow-n { animation: flow-num var(--cycle) ease-in-out var(--at) infinite; }
+  .flow.is-live .fl-spark { animation: flow-spark var(--cycle) linear var(--at) infinite; }
+  .flow.is-live .fl-tip { animation: flow-tip var(--cycle) linear var(--at) infinite; }
+
+  /* -------------------------------------------- how it works: the reveal */
+  /* Played once, when the section first comes into view: the sources land, the
+     arrow draws, the verdicts arrive a row at a time, then CI resolves from
+     running to stale. `is-armed` is what hides all of that beforehand, and it
+     is only ever set by script, so with no JS (or with reduced motion) the
+     section renders its finished state and nothing below moves. */
+  .flow.is-armed .flow-file,
+  .flow.is-armed .flow-verdict,
+  .flow.is-armed .chk { opacity: 0; }
+  .flow.is-armed .fl-track { transform: scaleX(0); }
+
+  @keyframes flow-land {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes flow-draw {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+  @keyframes flow-draw-v {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+
+  .flow.is-live .flow-file,
+  .flow.is-live .flow-verdict,
+  .flow.is-live .chk {
+    animation: flow-land 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--in, 0ms) both;
+  }
+  .flow.is-live .fl-track {
+    animation: flow-draw 460ms cubic-bezier(0.22, 1, 0.36, 1) var(--in, 0ms) both;
+  }
+
+  /* The last of these has to land inside --rev, or the highlight sets off
+     before the thing it is walking has finished arriving. */
+  .flow-stage[data-step="1"] .flow-file:nth-of-type(2) { --in: 110ms; }
+  .flow-link[data-step="1"] .fl-track { --in: 240ms; }
+  .flow-body > .flow-verdict:nth-child(2) { --in: 600ms; }
+  .flow-body > .flow-verdict:nth-child(3) { --in: 710ms; }
+  .flow-body > .flow-verdict:nth-child(4) { --in: 820ms; }
+  .flow-body > .flow-verdict:nth-child(5) { --in: 930ms; }
+  .flow-link[data-step="2"] .fl-track { --in: 1080ms; }
+  .flow-checks > .chk:nth-child(1) { --in: 1250ms; }
+  .flow-checks > .chk:nth-child(2) { --in: 1360ms; }
+  .flow-checks > .chk:nth-child(3) { --in: 1470ms; }
+  .flow-checks > .chk:nth-child(4) { --in: 1580ms; }
+
+  /* The check that resolves. Both stamps sit in one grid cell so the row is as
+     wide as the wider word from the start and nothing shifts when it flips. */
+  .chk-stamps {
     display: grid;
-    gap: 1.15rem;
+    justify-items: end;
+    flex-shrink: 0;
   }
-  .sup dt {
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: -0.015em;
+  .chk-stamps > .stamp { grid-area: 1 / 1; }
+  .chk-stamps .stamp[data-s="run"] { opacity: 0; }
+  .stamp[data-s="run"] {
+    color: var(--faint);
+    border: 1px dashed rgba(255, 255, 255, 0.18);
   }
-  /* No prose max-width here: the panels are full-width now, and a cap narrower
-     than the panel breaks each line short of the edge and orphans the tail. */
-  .sup dd {
-    margin: 0.3rem 0 0;
-    font-size: 0.92rem;
-    line-height: 1.65;
+
+  .flow.is-armed .chk[data-flip] .n { color: var(--muted); }
+  .flow.is-armed .chk[data-flip] svg { color: var(--faint); }
+  .flow.is-armed .chk-stamps .stamp[data-s="run"] { opacity: 1; }
+  .flow.is-armed .chk-stamps .stamp[data-s="gap"] { opacity: 0; }
+
+  @keyframes flip-name {
+    from { color: var(--muted); }
+    to { color: var(--ink); }
+  }
+  @keyframes flip-ico {
+    from { color: var(--faint); }
+    to { color: var(--gap); }
+  }
+  @keyframes flip-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes flip-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  .flow.is-live .chk[data-flip] .n { animation: flip-name 300ms ease 1900ms both; }
+  .flow.is-live .chk[data-flip] svg { animation: flip-ico 300ms ease 1900ms both; }
+  .flow.is-live .chk-stamps .stamp[data-s="run"] { animation: flip-out 300ms ease 1900ms both; }
+  .flow.is-live .chk-stamps .stamp[data-s="gap"] { animation: flip-in 300ms ease 1900ms both; }
+
+  @media (max-width: 860px) {
+    /* Stacked, the same signal walks downward: the arrow, its spark, and the
+       ring sweep all turn through 90 degrees. */
+    .flow-link { width: auto; height: 2.4rem; }
+    .fl-track,
+    .fl-spark {
+      left: 50%;
+      right: auto;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      height: auto;
+      margin: 0 0 0 -0.5px;
+    }
+    .fl-track { transform-origin: center top; }
+    .fl-spark {
+      background-image: linear-gradient(180deg, transparent 32%, var(--hl) 50%, transparent 68%);
+      background-size: 100% 260%;
+      background-position: 0 100%;
+    }
+    .fl-tip {
+      right: auto;
+      left: 50%;
+      top: auto;
+      bottom: -1px;
+      margin: 0 0 0 -4.5px;
+      transform: rotate(90deg);
+    }
+    .flow-stage::before {
+      background-image: linear-gradient(180deg, transparent 34%, var(--hl) 50%, transparent 66%);
+      background-size: 100% 260%;
+      background-position: 0 100%;
+    }
+    .flow.is-armed .fl-track { transform: scaleY(0); }
+    .flow.is-live .fl-track { animation-name: flow-draw-v; }
+    .flow.is-live .fl-spark { animation-name: flow-spark-v; }
+    .flow.is-live .flow-stage::before { animation-name: flow-ring-v; }
+  }
+
+  /* Script already declines to arm the section under reduced motion; this is
+     the belt-and-braces half, in case the class is ever set another way. */
+  @media (prefers-reduced-motion: reduce) {
+    .flow .flow-file,
+    .flow .flow-verdict,
+    .flow .chk { opacity: 1; }
+    .flow .fl-track { transform: none; }
+    .flow .chk-stamps .stamp[data-s="run"] { opacity: 0; }
+    .flow .chk-stamps .stamp[data-s="gap"] { opacity: 1; }
+    .flow *,
+    .flow *::before,
+    .flow *::after { animation: none !important; }
+  }
+
+  /* ====================================== what it works with: one card, tabbed */
+  /* One file, shown four times. The tab row swaps the runner; the two lines
+     SpecProof reads never move, which is the whole claim. Nothing here is a
+     runner integration, so this is not a list of runners we plug into: it is
+     the shape a test file has to have. */
+  .works { display: block; }
+
+  /* The card keeps its own height through a swap (set in script, cleared
+     after) so the page below never jumps while the panels cross. */
+  .works-fw {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .fw-panel[hidden] { display: none; }
+  /* The outgoing panel leaves the flow, so the incoming one alone decides the
+     height the card is animating towards. */
+  .fw-panel.is-out {
+    position: absolute;
+    inset: 0 0 auto 0;
+    width: 100%;
+    pointer-events: none;
+    animation: fw-leave 240ms ease both;
+  }
+
+  .fw-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1.5rem;
+    padding: 1.05rem 1.35rem 0.95rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .fw-bar .file {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink);
+  }
+  .fw-bar .note {
+    font-size: 0.82rem;
+    line-height: 1.6;
     color: var(--muted);
   }
-  /* The third panel: same head as the two above it, code hung below a hairline
-     so the sample reads as the payoff of the section rather than a loose block. */
-  .sup-code { padding: 0; }
-  .sup-code .sup-head { padding: 1.6rem 1.8rem 1.5rem; }
-  .sup-code pre {
-    margin: 0;
-    padding: 1.3rem 1.8rem 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+  /* Green is not syntax highlighting, it is the read itself: exactly the
+     substrings SpecProof pulls back out of the file. */
+  .fw-code .tk { color: var(--ok); }
+  .fw-code .dim { color: var(--faint); }
+
+  .fw-code {
+    padding: 1.15rem 1.35rem 1.3rem;
     font-family: var(--mono);
-    font-size: 0.88rem;
-    line-height: 2.1;
+    font-size: 0.82rem;
+    line-height: 2.05;
     overflow-x: auto;
   }
-  .sup-code .c1 { color: var(--faint); user-select: none; }
-  .sup-code .c2 { color: var(--ok); }
-  .sup-code .cm { color: var(--faint); }
+  /* Rows stretch to the card but grow past it, so the tag stays pinned right
+     at any width and the whole row scrolls together when the code is long. */
+  .fw-code .ln {
+    display: flex;
+    align-items: baseline;
+    gap: 1.2rem;
+    width: max-content;
+    min-width: 100%;
+  }
+  .fw-code .src { white-space: pre; }
+  /* Both spans are positioned so they paint over the ::before highlight,
+     which is itself positioned and comes first in paint order. */
+  .fw-code .src,
+  .fw-code .rd { position: relative; }
+  .fw-code .ln[data-read] {
+    position: relative;
+    /* Cancelled by the matching negative margins, so a marked line keeps the
+       exact indentation of the lines around it and the tag stays pinned where
+       the unmarked rows end: the highlight is what grows, past both. */
+    padding-left: 0.5rem;
+    margin-left: -0.5rem;
+    padding-right: 0.65rem;
+    margin-right: -0.65rem;
+  }
+  /* A layer rather than a background on the line itself: only a transform can
+     be wiped across, and only a pseudo-element can carry one without moving
+     the code sitting on top of it. */
+  .fw-code .ln[data-read]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--ok) 7%, transparent);
+    transform-origin: left center;
+  }
+  .fw-code .rd {
+    margin-left: auto;
+    flex: none;
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ok);
+  }
+
+  /* The card's bottom edge doubles as the dwell timer for the auto-advance:
+     the fill runs the width of the card and the next runner takes over at the
+     moment it lands on the right edge, so the swap is something the reader can
+     see coming rather than something that happens to them. Built in script,
+     which leaves a no-JS page with a plain card edge. */
+  .fw-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.05);
+    pointer-events: none;
+    transition: opacity 320ms ease;
+  }
+  /* An explicit pick ends the cycle for good, so a bar still counting down to
+     a swap that is never coming would be lying. */
+  .fw-timer.is-done { opacity: 0; }
+  .fw-timer i {
+    display: block;
+    height: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ok) 30%, transparent),
+      var(--ok)
+    );
+  }
+
+  /* ---- the swap itself ---------------------------------------------- */
+  /* The incoming panel is not faded in as a block. Its rows land one after
+     the next, and the two rows SpecProof actually reads are then wiped in
+     under the code and tagged: the animation says what the card says. */
+  @keyframes fw-line {
+    from { opacity: 0; transform: translateX(var(--fw-dx, 18px)); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fw-wipe {
+    from { opacity: 0; transform: scaleX(0); }
+    to { opacity: 1; transform: scaleX(1); }
+  }
+  @keyframes fw-tag {
+    from { opacity: 0; transform: translateX(7px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fw-leave {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateX(calc(var(--fw-dx, 18px) * -0.55)); }
+  }
+
+  /* Four beats, on the cadence the How it works cards keep: 500ms each at the
+     same easing, handed over every 110ms. The bar lands, the code lands, then
+     the two rows SpecProof reads are wiped in one after the other and tagged.
+     Staggering four units rather than every line is what keeps it in step with
+     that section, which never walks more than four things either. */
+  .fw-panel.is-in .fw-bar,
+  .fw-panel.is-in .fw-code {
+    animation: fw-line 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms) both;
+  }
+  .fw-panel.is-in .fw-bar { --d: 0ms; }
+  .fw-panel.is-in .fw-code { --d: 110ms; }
+
+  /* Beats three and four. --d is set on the row, so the wipe under it and the
+     tag beside it both read it without being addressed separately. */
+  .fw-panel.is-in .fw-code .ln:nth-child(3) { --d: 220ms; }
+  .fw-panel.is-in .fw-code .ln:nth-child(5) { --d: 330ms; }
+  .fw-panel.is-in .fw-code .ln[data-read]::before {
+    animation: fw-wipe 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--d) both;
+  }
+  .fw-panel.is-in .fw-code .rd {
+    animation: fw-tag 300ms ease calc(var(--d) + 120ms) both;
+  }
+
+  /* Script already skips the choreography under reduced motion; this is the
+     belt to that braces, and also covers the pill and the height. */
+  @media (prefers-reduced-motion: reduce) {
+    .fw-ink { transition: none; }
+    .works-fw { transition: none; }
+    .fw-panel.is-in *,
+    .fw-panel.is-in *::before,
+    .fw-panel.is-out { animation: none !important; }
+  }
 
   /* code panels */
   .code-shell .bar {
@@ -567,9 +1195,13 @@
   .code-shell .c2 { color: var(--ok); }
   .code-shell .cm { color: var(--faint); }
 
-  /* ============================================ package-manager tabs */
-  /* One tab row drives both step blocks, so the manager is picked once. */
-  .pm-tabs {
+  /* ================================================== tab rows */
+  /* Two independent groups on the same styling: the package-manager row,
+     where one pick drives every step block at once, and the framework row
+     in "What it works with", which drives only its own card. */
+  .pm-tabs,
+  .fw-tabs {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem;
@@ -577,7 +1209,8 @@
        section heading above it. */
     margin: 0 0 1rem -0.6rem;
   }
-  .pm-tabs button {
+  .pm-tabs button,
+  .fw-tabs button {
     all: unset;
     cursor: pointer;
     font-family: var(--mono);
@@ -588,9 +1221,37 @@
     border-radius: 6px;
     transition: color 150ms ease, box-shadow 150ms ease;
   }
-  .pm-tabs button:hover { color: var(--ink); }
-  .pm-tabs button:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
-  .pm-tabs button[aria-selected="true"] {
+  .pm-tabs button:hover,
+  .fw-tabs button:hover { color: var(--ink); }
+  .pm-tabs button:focus-visible,
+  .fw-tabs button:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
+  /* The framework row swaps its per-button background for one pill that
+     travels between tabs, so the row reads as a single control being moved
+     rather than four lights switching. Added by script and gated on .has-ink,
+     which leaves the plain aria-selected styling below as the no-JS state. */
+  .fw-ink {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: 6px;
+    /* Same face as the package-manager tabs' selected chip, so a selected tab
+       reads identically everywhere on the page; only the travel is different. */
+    background: var(--raise);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    /* Slightly past 1 on the way out: the pill overshoots and settles, which
+       is what makes the move read as thrown rather than faded. */
+    transition:
+      transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1),
+      width 420ms cubic-bezier(0.34, 1.4, 0.5, 1),
+      height 420ms cubic-bezier(0.34, 1.4, 0.5, 1);
+    pointer-events: none;
+  }
+  .fw-tabs.has-ink button { position: relative; z-index: 1; }
+  .fw-tabs.has-ink button[aria-selected="true"] { background: none; box-shadow: none; }
+
+  .pm-tabs button[aria-selected="true"],
+  .fw-tabs button[aria-selected="true"] {
     color: var(--ok);
     background: var(--raise);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -645,7 +1306,7 @@
   .pm-note .c2 { font-family: var(--mono); color: var(--ok); }
 
   /* ================================================================ cta */
-  /* The closing act. Not one of the flat `.panel` cards: a narrower, softer
+  /* The closing act. Not one of the flat `.panel` cards: a softer
      vessel that lifts off the page — big radius, a verdict-green rim, a wash
      of green falling from the top edge and a second bloom rising from below,
      over a deep drop shadow. The type steps up toward hero scale so the last
@@ -654,8 +1315,6 @@
   .cta-end {
     position: relative;
     overflow: hidden;
-    max-width: 47.5rem;
-    margin: 0 auto;
     padding: 4rem 2.5rem 4.25rem;
     text-align: center;
     border-radius: 28px;
@@ -889,118 +1548,198 @@
       <p class="sec-sub">Three steps, one committed JSON report.</p>
     </div>
 
-    <div class="steps">
-      <div class="step panel">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-          <circle cx="10.5" cy="10.5" r="6.5" />
-          <path d="M15.4 15.4 21 21" />
-        </svg>
-        <h3>Read</h3>
-        <p>Finds your OpenAPI spec, scans your tests. No configuration.</p>
+    <div class="flow">
+      <div class="flow-stage panel" data-step="1">
+        <div class="flow-head">
+          <span class="flow-n" aria-hidden="true">01</span>
+          <h3>Read</h3>
+          <p>Finds your OpenAPI spec, scans your tests. No configuration.</p>
+        </div>
+        <div class="flow-body">
+          <div class="flow-file">
+            <b>openapi.yaml <i>or</i> openapi.json</b>
+            <span>POST /tasks</span>
+            <div class="ff-rows">
+              <div class="ff-row"><span class="c">201</span><span class="d">Task created</span></div>
+              <div class="ff-row"><span class="c">400</span><span class="d">Malformed body</span></div>
+              <div class="ff-row"><span class="c">401</span><span class="d">Missing bearer token</span></div>
+            </div>
+          </div>
+          <div class="flow-file">
+            <b><i>tasks</i>.test.ts <i>.tsx .js .jsx</i></b>
+            <span>describe("POST /tasks")</span>
+            <div class="ff-rows">
+              <div class="ff-row"><span class="c">201</span><span class="d">it("creates a task")</span></div>
+              <div class="ff-row"><span class="c">400</span><span class="d">it("requires a title")</span></div>
+              <div class="ff-row"><span class="c">422</span><span class="d">it("rejects a past date")</span></div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="step panel">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-          <path d="M3 8h14m-4-4 4 4-4 4" />
-          <path d="M21 16H7m4-4-4 4 4 4" />
-        </svg>
-        <h3>Compare</h3>
-        <p>Matches every documented response to the assertions that check it.</p>
+      <div class="flow-link" data-step="1" aria-hidden="true">
+        <span class="fl-track"></span>
+        <span class="fl-spark"></span>
+        <svg class="fl-tip" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 2.5L8 6l-4 3.5" /></svg>
       </div>
 
-      <div class="step panel">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-          <path d="M12 3l7.5 3v6c0 4.6-3.2 7.9-7.5 9-4.3-1.1-7.5-4.4-7.5-9V6L12 3z" />
-          <path d="M9 12l2.2 2.2L15 10.4" />
-        </svg>
-        <h3>Guard</h3>
-        <p>The report is one committed file.<br />CI fails when it goes stale.</p>
+      <div class="flow-stage panel" data-step="2">
+        <div class="flow-head">
+          <span class="flow-n" aria-hidden="true">02</span>
+          <h3>Compare</h3>
+          <p>Matches every documented response to its assertions.</p>
+        </div>
+        <div class="flow-body">
+          <div class="flow-key">
+            <span class="method" data-m="post">POST</span>
+            <span class="k">/tasks</span>
+          </div>
+          <div class="flow-verdict">
+            <span class="mark" data-s="ok"></span>
+            <span class="code">201</span>
+            <span class="lead"></span>
+            <span class="stamp" data-s="ok">Verified</span>
+          </div>
+          <div class="flow-verdict">
+            <span class="mark" data-s="ok"></span>
+            <span class="code">400</span>
+            <span class="lead"></span>
+            <span class="stamp" data-s="ok">Verified</span>
+          </div>
+          <div class="flow-verdict">
+            <span class="mark" data-s="gap"></span>
+            <span class="code">401</span>
+            <span class="lead"></span>
+            <span class="stamp" data-s="gap">No test</span>
+          </div>
+          <div class="flow-verdict">
+            <span class="mark" data-s="undoc"></span>
+            <span class="code">422</span>
+            <span class="lead"></span>
+            <span class="stamp" data-s="undoc">Undocumented</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-link" data-step="2" aria-hidden="true">
+        <span class="fl-track"></span>
+        <span class="fl-spark"></span>
+        <svg class="fl-tip" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 2.5L8 6l-4 3.5" /></svg>
+      </div>
+
+      <div class="flow-stage panel" data-step="3">
+        <div class="flow-head">
+          <span class="flow-n" aria-hidden="true">03</span>
+          <h3>Guard</h3>
+          <p>The report is one committed file. CI fails when it goes stale.</p>
+        </div>
+        <div class="flow-body">
+          <div class="flow-key">
+            <span class="method" data-m="ci">CI</span>
+            <span class="k">ci.yml</span>
+          </div>
+          <div class="flow-checks">
+            <div class="chk" data-s="ok"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.4 6.4l2.4 2.4L9.6 3.6" /></svg><span class="n">build</span><span class="lead"></span><span class="stamp" data-s="ok">Passed</span></div>
+            <div class="chk" data-s="ok"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.4 6.4l2.4 2.4L9.6 3.6" /></svg><span class="n">lint</span><span class="lead"></span><span class="stamp" data-s="ok">Passed</span></div>
+            <div class="chk" data-s="ok"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.4 6.4l2.4 2.4L9.6 3.6" /></svg><span class="n">test</span><span class="lead"></span><span class="stamp" data-s="ok">Passed</span></div>
+            <div class="chk" data-s="gap" data-flip><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.2 3.2l5.6 5.6M8.8 3.2l-5.6 5.6" /></svg><span class="n">specproof</span><span class="lead"></span><span class="chk-stamps"><span class="stamp" data-s="run">Running</span><span class="stamp" data-s="gap">Stale</span></span></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
+<script>
+  // Armed here rather than with the rest of the script at the end of the body:
+  // the pre-reveal state has to be in place before this section first paints,
+  // or the evidence shows up and then hides itself to animate back in. Nothing
+  // is armed under reduced motion, which leaves the finished state on screen
+  // and, since every animation is gated on these classes, the section still.
+  (function () {
+    var flow = document.querySelector('#how .flow');
+    if (!flow || !('IntersectionObserver' in window)) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    flow.classList.add('is-armed');
+  })();
+</script>
+
 <section id="expects">
   <div class="wrap">
     <div class="sec-head">
       <h2>What it works with</h2>
-      <p class="sec-sub">
-        Two things your repo already has. Nothing to annotate, no plugin, no
-        runner integration.
-      </p>
+      <p class="sec-sub">The frameworks we support, and the syntax we read.</p>
     </div>
 
-    <div class="support">
-      <div class="sup panel">
-        <div class="sup-head">
-          <span class="micro">01</span>
-          <h3>Your OpenAPI spec</h3>
-          <p class="sup-lede">
-            SpecProof reads every operation, along with every response status.
-          </p>
-        </div>
-        <dl>
-          <dt>OpenAPI 3.x and Swagger 2.0</dt>
-          <dd>
-            SpecProof finds and uses the shallowest
-            <code>openapi*</code> or <code>swagger*</code> file in the repo.<br />
-            Pass <code>--spec</code> when yours lives somewhere unusual.
-          </dd>
-
-          <dt>JSON or YAML</dt>
-          <dd>
-            Either format works, read exactly as it sits on disk.<br />
-            Both produce the same proof, so converting between them never reads
-            as drift.
-          </dd>
-        </dl>
+    <div class="works">
+      <div class="fw-tabs" role="tablist" aria-label="Test framework">
+        <button role="tab" data-fw="vitest" id="fw-tab-vitest" aria-controls="fw-panel-vitest" aria-selected="true">Vitest</button>
+        <button role="tab" data-fw="jest" id="fw-tab-jest" aria-controls="fw-panel-jest" aria-selected="false" tabindex="-1">Jest</button>
+        <button role="tab" data-fw="bun" id="fw-tab-bun" aria-controls="fw-panel-bun" aria-selected="false" tabindex="-1">Bun test</button>
+        <button role="tab" data-fw="jasmine" id="fw-tab-jasmine" aria-controls="fw-panel-jasmine" aria-selected="false" tabindex="-1">Jasmine</button>
       </div>
 
-      <div class="sup panel">
-        <div class="sup-head">
-          <span class="micro">02</span>
-          <h3>Your tests</h3>
-          <p class="sup-lede">
-            SpecProof reads the operations it exercises, along with the statuses it asserts.
-          </p>
+      <div class="works-fw panel">
+        <div class="fw-panel" id="fw-panel-vitest" role="tabpanel" aria-labelledby="fw-tab-vitest">
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.ts</span>
+            <span class="note">Named imports from <code>vitest</code>.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">import { describe, it, expect } from "vitest";</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
+            <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">Response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
         </div>
-        <dl>
-          <dt>TypeScript and JavaScript</dt>
-          <dd>
-            SpecProof reads <code>.test.ts</code>, <code>.test.tsx</code>,
-            <code>.test.js</code>, and <code>.test.jsx</code> files.<br />
-            They can live anywhere in the repo.
-          </dd>
-
-          <dt>Vitest, Jest, Bun test</dt>
-          <dd>
-            Any runner that uses <code>describe</code> / <code>it</code> and
-            <code>expect</code> is supported.<br />
-            The HTTP client makes no difference, since SpecProof reads the
-            assertion rather than the request.
-          </dd>
-        </dl>
-      </div>
-
-      <div class="sup sup-code panel">
-        <div class="sup-head">
-          <span class="micro">03</span>
-          <h3>Where the two meet</h3>
-          <p class="sup-lede">
-            In a file like <code>tests/tasks.test.ts</code>, two lines do the
-            work.
-          </p>
-          <ol class="sup-list">
-            <li>The <code>describe</code> title that names the operation.</li>
-            <li>The status the test asserts.</li>
-          </ol>
-          <p class="sup-lede">Both are matched back to the spec.</p>
+        <div class="fw-panel" id="fw-panel-jest" role="tabpanel" aria-labelledby="fw-tab-jest" hidden>
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.ts</span>
+            <span class="note">Globals, and a supertest response instead of a fetch one.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">import request from "supertest";</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
+            <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">Response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
         </div>
-        <pre>describe(<span class="c2">"POST /tasks"</span>, () =&gt; {           <span class="cm">// the operation</span>
-  it(<span class="c1">"creates a task"</span>, async () =&gt; {
-    expect(res.status).<span class="c2">toBe(201)</span>;         <span class="cm">// the response it proves</span>
-  });
-});</pre>
+        <div class="fw-panel" id="fw-panel-bun" role="tabpanel" aria-labelledby="fw-tab-bun" hidden>
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.ts</span>
+            <span class="note"><code>test()</code> is read exactly like <code>it()</code>.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">import { describe, test, expect } from "bun:test";</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
+            <div class="ln"><span class="src">  test(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">Response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
+        </div>
+        <div class="fw-panel" id="fw-panel-jasmine" role="tabpanel" aria-labelledby="fw-tab-jasmine" hidden>
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.js</span>
+            <span class="note"><code>toEqual()</code> is read exactly like <code>toBe()</code>.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">// describe, it and expect are globals</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">Operation</span></div>
+            <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toEqual(201)</span>;</span><span class="rd">Response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1023,7 +1762,7 @@
     <div class="start-steps">
       <div class="code-shell panel">
         <div class="bar">
-          <span class="micro">Install</span>
+          <span class="micro cap">Install</span>
         </div>
         <div class="pm-panel" id="pm-install-bun" role="tabpanel" aria-labelledby="pm-tab-bun" hidden>
           <div class="pm-cmd">
@@ -1054,7 +1793,7 @@
       <div>
         <div class="code-shell panel">
           <div class="bar">
-            <span class="micro">Run</span>
+            <span class="micro cap">Run</span>
           </div>
           <div class="pm-panel" id="pm-run-bun" role="tabpanel" aria-labelledby="pm-tab-bun" hidden>
             <div class="pm-cmd">
@@ -1081,7 +1820,7 @@
             </div>
           </div>
         </div>
-        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>. Pass <code>--port</code> to host it somewhere else.</p>
+        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>.</p>
       </div>
     </div>
   </div>
@@ -1201,6 +1940,29 @@ jobs:
     });
   });
 
+  // How it works: play the reveal the first time the row is on screen, which
+  // is also what starts the highlight walking it (both are CSS, keyed off
+  // `is-live`). Only ever runs against a section the arming script above
+  // accepted, so reduced motion and no-JS both keep the static state.
+  (function () {
+    var flow = document.querySelector('#how .flow.is-armed');
+    if (!flow) return;
+
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          flow.classList.add('is-live');
+          io.disconnect();
+        });
+      },
+      // A little into view rather than at the very edge, so the sequence does
+      // not play out above the fold on the way past.
+      { threshold: 0.15, rootMargin: '0px 0px -12% 0px' }
+    );
+    io.observe(flow);
+  })();
+
   // Package-manager tabs: one tab controls every pane it names in aria-controls
   // (the install and run panes in Get started, the command chip in the closing
   // CTA). Every pane is in the DOM, so the copy buttons work whichever one is
@@ -1238,6 +2000,231 @@ jobs:
           var next = tabs[(i + step + tabs.length) % tabs.length];
           select(next.getAttribute('data-pm'), next);
         });
+      });
+    });
+  })();
+
+  // Framework tabs: one row, one card. Kept separate from the package-manager
+  // switcher above because that one syncs every .pm-tabs group on the page,
+  // which is right for "which manager am I" and wrong for "which runner is this
+  // example in". Every panel stays in the DOM, so no-JS renders the first one.
+  (function () {
+    var row = document.querySelector('.fw-tabs');
+    var card = document.querySelector('.works-fw');
+    if (!row || !card) return;
+    var tabs = Array.prototype.slice.call(row.querySelectorAll('[role="tab"]'));
+    if (!tabs.length) return;
+
+    var still =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function paneOf(tab) {
+      return document.getElementById(tab.getAttribute('aria-controls'));
+    }
+    var panes = tabs.map(paneOf);
+
+    // One pill that travels, rather than a background switching on and off in
+    // four places. Built here so the no-JS page keeps the plain selected state.
+    var ink = document.createElement('span');
+    ink.className = 'fw-ink';
+    ink.setAttribute('aria-hidden', 'true');
+    row.appendChild(ink);
+    row.classList.add('has-ink');
+
+    // offsetTop and height as well as left: the row wraps on narrow screens,
+    // where the pill has to change rows and not just slide along one.
+    function moveInk(tab, instant) {
+      if (instant) ink.style.transition = 'none';
+      ink.style.transform = 'translate(' + tab.offsetLeft + 'px, ' + tab.offsetTop + 'px)';
+      ink.style.width = tab.offsetWidth + 'px';
+      ink.style.height = tab.offsetHeight + 'px';
+      if (instant) {
+        void ink.offsetWidth;
+        ink.style.transition = '';
+      }
+    }
+
+    var current =
+      tabs.filter(function (t) { return t.getAttribute('aria-selected') === 'true'; })[0] ||
+      tabs[0];
+    moveInk(current, true);
+    window.addEventListener('resize', function () { moveInk(current, true); });
+
+    var timers = [];
+    function clearTimers() {
+      timers.forEach(clearTimeout);
+      timers = [];
+    }
+
+    function select(tab, focus, forced) {
+      if (focus) tab.focus();
+      if (tab === current) return;
+
+      var from = paneOf(current);
+      var to = paneOf(tab);
+      // Auto-advance forces forward, so wrapping past the last tab keeps
+      // travelling the same way instead of snapping back across the row.
+      var forward = forced ? forced > 0 : tabs.indexOf(tab) > tabs.indexOf(current);
+      current = tab;
+
+      tabs.forEach(function (other) {
+        var on = other === tab;
+        other.setAttribute('aria-selected', String(on));
+        other.tabIndex = on ? 0 : -1;
+      });
+      moveInk(tab);
+
+      if (!from || !to) return;
+      if (still) {
+        from.hidden = true;
+        to.hidden = false;
+        return;
+      }
+
+      // A fast second click lands mid-swap, so strand nothing: every panel that
+      // is neither leaving nor arriving goes straight back to hidden and clean.
+      clearTimers();
+      panes.forEach(function (pane) {
+        if (!pane || pane === from || pane === to) return;
+        pane.classList.remove('is-in', 'is-out');
+        pane.hidden = true;
+      });
+
+      // Which way the rows fly in from, so the motion agrees with the tab that
+      // was just clicked instead of always going the same direction.
+      card.style.setProperty('--fw-dx', (forward ? 18 : -18) + 'px');
+
+      var from_h = card.offsetHeight;
+      from.classList.remove('is-in');
+      from.classList.add('is-out');
+      to.hidden = false;
+      to.classList.remove('is-in');
+      void to.offsetWidth; // restarts the stagger when the same panel returns
+      to.classList.add('is-in');
+
+      // Read once the outgoing panel is out of flow: the incoming one alone
+      // decides the height, and transforms do not move it.
+      var to_h = to.offsetHeight;
+      card.style.height = from_h + 'px';
+      void card.offsetWidth;
+      card.style.height = to_h + 'px';
+
+      timers.push(setTimeout(function () {
+        from.classList.remove('is-out');
+        from.hidden = true;
+      }, 260));
+      timers.push(setTimeout(function () {
+        card.style.height = '';
+      }, 360));
+      // Cleared only once the last tag has landed, or removing the class would
+      // cut the choreography short.
+      timers.push(setTimeout(function () {
+        to.classList.remove('is-in');
+      }, 720));
+    }
+
+    // The reveal runs at the How it works cadence, but the dwell cannot: those
+    // cards walk four-word verdict rows, this one is seven lines of code. The
+    // last beat settles at 830ms, so this leaves roughly three seconds of still
+    // card to actually read before the next runner takes over.
+    var ADVANCE_MS = 4000;
+    var picked = false;
+
+    // The dwell is a rAF clock rather than an interval because the bar along the
+    // card's bottom edge is the same countdown drawn: one elapsed figure feeds
+    // both, so the fill cannot drift away from the swap it is predicting. It
+    // also makes a pause a real pause, holding the remaining time instead of
+    // starting the four seconds over.
+    var track = null;
+    var fill = null;
+    if (!still) {
+      track = document.createElement('span');
+      track.className = 'fw-timer';
+      track.setAttribute('aria-hidden', 'true');
+      fill = document.createElement('i');
+      track.appendChild(fill);
+      card.appendChild(track);
+    }
+
+    var elapsed = 0;
+    var last = 0;
+    var raf = null;
+
+    function paint() {
+      if (fill) fill.style.transform = 'scaleX(' + Math.min(elapsed / ADVANCE_MS, 1) + ')';
+    }
+
+    function frame(now) {
+      if (!raf) return;
+      elapsed += now - last;
+      last = now;
+      if (elapsed >= ADVANCE_MS) {
+        elapsed = 0;
+        select(tabs[(tabs.indexOf(current) + 1) % tabs.length], false, 1);
+      }
+      paint();
+      raf = requestAnimationFrame(frame);
+    }
+
+    function stopAuto(reset) {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      if (reset) {
+        elapsed = 0;
+        paint();
+      }
+    }
+    function startAuto() {
+      if (raf || picked || still) return;
+      last = performance.now();
+      raf = requestAnimationFrame(frame);
+    }
+    // Left where it stands rather than wound back to zero: the bar is fading
+    // out, and collapsing it on the way would read as the timer being reset.
+    function endCycle() {
+      picked = true;
+      stopAuto();
+      if (track) track.classList.add('is-done');
+    }
+
+    // Only while the card is actually on screen: a cycle running in a scrolled
+    // past section is work nobody sees, and it would be mid-sequence on return.
+    if (!still && 'IntersectionObserver' in window) {
+      new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) startAuto();
+            else stopAuto(true);
+          });
+        },
+        { threshold: 0.3 }
+      ).observe(card);
+    }
+
+    // Reading one tab should not be interrupted by the next one arriving.
+    ['mouseenter', 'focusin'].forEach(function (type) {
+      function hold() { stopAuto(); }
+      card.addEventListener(type, hold);
+      row.addEventListener(type, hold);
+    });
+    ['mouseleave', 'focusout'].forEach(function (type) {
+      card.addEventListener(type, startAuto);
+      row.addEventListener(type, startAuto);
+    });
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () {
+        // An explicit pick ends the cycle for good: having chosen a runner, the
+        // reader should not have it taken off them a second later.
+        endCycle();
+        select(tab);
+      });
+      tab.addEventListener('keydown', function (event) {
+        var step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        endCycle();
+        select(tabs[(i + step + tabs.length) % tabs.length], true);
       });
     });
   })();
