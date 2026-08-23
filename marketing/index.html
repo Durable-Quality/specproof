@@ -408,12 +408,12 @@
   }
 
   /* One inline-code token for every flag, filename, or identifier that appears
-     inside prose. Block code (.pm-cmd, .meet-code) is styled on its own.
+     inside prose. Block code (.pm-cmd, .fw-code) is styled on its own.
      Kept here because the block this replaces owned it: .sec-sub code and
      .pm-note code are still used by the CI and Get started sections. */
   .flow-head code,
   .sec-sub code,
-  .meet code,
+  .works code,
   .pm-note code {
     font-family: var(--mono);
     font-size: 0.85em;
@@ -423,7 +423,7 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
     padding: 0.15em 0.4em;
   }
-  .meet code, .flow-head code { white-space: nowrap; }
+  .works code, .flow-head code { white-space: nowrap; }
 
   /* ============================================ how it works: three steps */
   /* Three cards, each carrying its own evidence below a hairline. The gaps
@@ -966,170 +966,77 @@
     .flow *::after { animation: none !important; }
   }
 
-  /* ================================ what it works with: two in, one place */
-  /* The section's shape is the argument: two inputs side by side, and the
-     file where they actually meet below. */
-  .meet {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.2rem;
-  }
-  @media (max-width: 820px) {
-    .meet { grid-template-columns: minmax(0, 1fr); }
-  }
+  /* ====================================== what it works with: one card, tabbed */
+  /* One file, shown four times. The tab row swaps the runner; the two lines
+     SpecProof reads never move, which is the whole claim. Nothing here is a
+     runner integration, so this is not a list of runners we plug into: it is
+     the shape a test file has to have. */
+  .works { display: block; }
 
-  .meet-in { padding: 1.6rem 1.7rem 1.7rem; display: flex; flex-direction: column; }
-  .meet h3 {
-    margin: 0;
-    font-size: 1.18rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-  .meet-lede {
-    margin: 0.45rem 0 0;
-    font-size: 0.95rem;
-    line-height: 1.7;
-    color: var(--muted);
-  }
+  .works-fw { display: flex; flex-direction: column; }
+  .fw-panel[hidden] { display: none; }
 
-  /* What the panel accepts, scannable before it is readable. */
-  .meet-chips {
+  .fw-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 1.1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1.5rem;
+    padding: 1.05rem 1.35rem 0.95rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
-  .meet-chip {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.01em;
-    color: var(--muted);
-    padding: 0.28rem 0.6rem;
-    border-radius: 6px;
-    background: var(--raise);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-    white-space: nowrap;
-  }
-  .meet-chip[data-hot] {
-    color: var(--ok);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 32%, transparent);
-    background: color-mix(in srgb, var(--ok) 8%, transparent);
-  }
-
-  /* Where SpecProof looks, shown rather than described. */
-  .meet-tree {
-    margin-top: 1.1rem;
-    padding: 0.9rem 1rem;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.02);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  .fw-bar .file {
     font-family: var(--mono);
     font-size: 0.74rem;
-    line-height: 1.95;
-    overflow-x: auto;
+    color: var(--ink);
   }
-  .meet-tree div {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-    white-space: pre;
-  }
-  .meet-tree .tag { margin-left: auto; }
-  .meet-tree .t { color: var(--faint); }
-  .meet-tree .hit { color: var(--ok); }
-  .meet-tree .miss { color: var(--faint); }
-  .meet-tree .tag {
-    font-size: 0.66rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .meet-tree .tag.hit { color: var(--ok); }
-  .meet-tree .tag.miss { color: rgba(255, 255, 255, 0.28); }
-
-  .meet-note {
-    margin: 1.1rem 0 0;
-    padding-top: 1.1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 0.9rem;
-    line-height: 1.65;
+  .fw-bar .note {
+    font-size: 0.82rem;
+    line-height: 1.6;
     color: var(--muted);
   }
-  .meet-in .meet-note { margin-top: auto; }
 
-  /* The payoff panel: the same snippet, but every line that matters is
-     labelled with what it is matched against. */
-  .meet-out { grid-column: 1 / -1; padding: 0; }
-  .meet-out .meet-head { padding: 1.6rem 1.7rem 1.4rem; }
+  /* Green is not syntax highlighting, it is the read itself: exactly the
+     substrings SpecProof pulls back out of the file. */
+  .fw-code .tk { color: var(--ok); }
+  .fw-code .dim { color: var(--faint); }
 
-  .meet-code {
-    display: grid;
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-    align-items: center;
-    gap: 0 1.4rem;
-    padding: 1.3rem 1.7rem 1.4rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  .fw-code {
+    padding: 1.15rem 1.35rem 1.3rem;
     font-family: var(--mono);
-    font-size: 0.88rem;
-    line-height: 2.1;
+    font-size: 0.82rem;
+    line-height: 2.05;
+    overflow-x: auto;
   }
-  .meet-code .ln { white-space: pre; overflow-x: auto; }
-  .meet-code .ann {
+  /* Rows stretch to the card but grow past it, so the tag stays pinned right
+     at any width and the whole row scrolls together when the code is long. */
+  .fw-code .ln {
     display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    font-size: 0.66rem;
+    align-items: baseline;
+    gap: 1.2rem;
+    width: max-content;
+    min-width: 100%;
+  }
+  .fw-code .src { white-space: pre; }
+  .fw-code .ln[data-read] {
+    background: color-mix(in srgb, var(--ok) 7%, transparent);
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ok) 55%, transparent);
+    border-radius: 3px;
+    /* Cancelled by the matching negative margin, so a marked line keeps the
+       exact indentation of the lines around it. */
+    padding-left: 0.5rem;
+    margin-left: -0.5rem;
+  }
+  .fw-code .rd {
+    margin-left: auto;
+    flex: none;
+    font-family: var(--sans);
+    font-size: 0.6rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--ok);
-    white-space: nowrap;
   }
-  .meet-code .ann::before {
-    content: "";
-    flex: 0 1 2.5rem;
-    min-width: 0.75rem;
-    border-top: 1px dashed color-mix(in srgb, var(--ok) 42%, transparent);
-  }
-  .meet-code .ann b {
-    font-weight: 400;
-    font-size: 0.76rem;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--faint);
-  }
-  @media (max-width: 700px) {
-    .meet-code { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    /* The label and its qualifier read as one wrapped line here, rather than
-       two columns fighting for 40px each. */
-    .meet-code .ann {
-      display: block;
-      padding: 0 0 0.6rem 1.2rem;
-      line-height: 1.6;
-      white-space: normal;
-    }
-    .meet-code .ann::before { display: none; }
-    .meet-code .ann b { display: inline; }
-  }
-
-  /* Closes the loop: the two lines above produce exactly this row in the
-     report at the top of the page. */
-  .meet-result {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.7rem 0.9rem;
-    padding: 1rem 1.7rem 1.3rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    font-family: var(--mono);
-    font-size: 0.78rem;
-  }
-  .meet-result .lbl {
-    font-size: 0.62rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--faint);
-  }
-  .meet-result .path em { font-style: normal; color: var(--faint); }
 
   /* code panels */
   .code-shell .bar {
@@ -1166,9 +1073,12 @@
   .code-shell .c2 { color: var(--ok); }
   .code-shell .cm { color: var(--faint); }
 
-  /* ============================================ package-manager tabs */
-  /* One tab row drives both step blocks, so the manager is picked once. */
-  .pm-tabs {
+  /* ================================================== tab rows */
+  /* Two independent groups on the same styling: the package-manager row,
+     where one pick drives every step block at once, and the framework row
+     in "What it works with", which drives only its own card. */
+  .pm-tabs,
+  .fw-tabs {
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem;
@@ -1176,7 +1086,8 @@
        section heading above it. */
     margin: 0 0 1rem -0.6rem;
   }
-  .pm-tabs button {
+  .pm-tabs button,
+  .fw-tabs button {
     all: unset;
     cursor: pointer;
     font-family: var(--mono);
@@ -1187,9 +1098,12 @@
     border-radius: 6px;
     transition: color 150ms ease, box-shadow 150ms ease;
   }
-  .pm-tabs button:hover { color: var(--ink); }
-  .pm-tabs button:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
-  .pm-tabs button[aria-selected="true"] {
+  .pm-tabs button:hover,
+  .fw-tabs button:hover { color: var(--ink); }
+  .pm-tabs button:focus-visible,
+  .fw-tabs button:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
+  .pm-tabs button[aria-selected="true"],
+  .fw-tabs button[aria-selected="true"] {
     color: var(--ok);
     background: var(--raise);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -1608,115 +1522,77 @@
   <div class="wrap">
     <div class="sec-head">
       <h2>What it works with</h2>
-      <p class="sec-sub">
-        Two things your repo already has. Nothing to annotate, no plugin, no
-        runner integration.
-      </p>
+      <p class="sec-sub">The frameworks we support, and the syntax we read.</p>
     </div>
 
-    <div class="meet">
-      <div class="meet-in panel">
-        <h3>Your OpenAPI spec</h3>
-        <p class="meet-lede">
-          SpecProof reads every operation, along with every response status.
-        </p>
-
-        <div class="meet-chips">
-          <span class="meet-chip" data-hot>OpenAPI 3.x</span>
-          <span class="meet-chip" data-hot>Swagger 2.0</span>
-          <span class="meet-chip">JSON</span>
-          <span class="meet-chip">YAML</span>
-        </div>
-
-        <div class="meet-tree">
-          <div><span class="t">your-repo/</span></div>
-          <div><span><span class="t">├─ </span><span class="hit">openapi.yaml</span></span><span class="tag hit">audited</span></div>
-          <div><span class="t">├─ docs/</span></div>
-          <div><span><span class="t">│  └─ </span><span class="miss">openapi.json</span></span><span class="tag miss">deeper</span></div>
-          <div><span><span class="t">└─ </span><span class="miss">node_modules/</span></span><span class="tag miss">skipped</span></div>
-        </div>
-
-        <p class="meet-note">
-          The shallowest <code>openapi*</code> or <code>swagger*</code> file
-          wins &mdash; pass <code>--spec</code> when yours lives somewhere
-          unusual. Either format is read exactly as it sits on disk, and both
-          produce the same proof, so converting between them never reads as
-          drift.
-        </p>
+    <div class="works">
+      <div class="fw-tabs" role="tablist" aria-label="Test framework">
+        <button role="tab" data-fw="vitest" id="fw-tab-vitest" aria-controls="fw-panel-vitest" aria-selected="true">Vitest</button>
+        <button role="tab" data-fw="jest" id="fw-tab-jest" aria-controls="fw-panel-jest" aria-selected="false" tabindex="-1">Jest</button>
+        <button role="tab" data-fw="bun" id="fw-tab-bun" aria-controls="fw-panel-bun" aria-selected="false" tabindex="-1">Bun test</button>
+        <button role="tab" data-fw="jasmine" id="fw-tab-jasmine" aria-controls="fw-panel-jasmine" aria-selected="false" tabindex="-1">Jasmine</button>
       </div>
 
-      <div class="meet-in panel">
-        <h3>Your tests</h3>
-        <p class="meet-lede">
-          SpecProof reads the operations it exercises, along with the statuses
-          it asserts.
-        </p>
-
-        <div class="meet-chips">
-          <span class="meet-chip" data-hot>Vitest</span>
-          <span class="meet-chip" data-hot>Jest</span>
-          <span class="meet-chip" data-hot>Bun test</span>
-          <span class="meet-chip">.test.ts</span>
-          <span class="meet-chip">.test.tsx</span>
-          <span class="meet-chip">.test.js</span>
-          <span class="meet-chip">.test.jsx</span>
+      <div class="works-fw panel">
+        <div class="fw-panel" id="fw-panel-vitest" role="tabpanel" aria-labelledby="fw-tab-vitest">
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.ts</span>
+            <span class="note">Named imports from <code>vitest</code>.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">import { describe, it, expect } from "vitest";</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
         </div>
-
-        <div class="meet-tree">
-          <div><span class="t">your-repo/</span></div>
-          <div><span class="t">├─ tests/</span></div>
-          <div><span><span class="t">│  └─ </span><span class="hit">tasks.test.ts</span></span><span class="tag hit">scanned</span></div>
-          <div><span class="t">├─ src/auth/</span></div>
-          <div><span><span class="t">│  └─ </span><span class="hit">login.test.ts</span></span><span class="tag hit">scanned</span></div>
-          <div><span><span class="t">└─ </span><span class="miss">node_modules/</span></span><span class="tag miss">skipped</span></div>
+        <div class="fw-panel" id="fw-panel-jest" role="tabpanel" aria-labelledby="fw-tab-jest" hidden>
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.ts</span>
+            <span class="note">Globals, and a supertest response instead of a fetch one.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">import request from "supertest";</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
         </div>
-
-        <p class="meet-note">
-          Any runner that uses <code>describe</code> / <code>it</code> and
-          <code>expect</code> is supported, and the files can live anywhere in
-          the repo. The HTTP client makes no difference, since SpecProof reads
-          the assertion rather than the request.
-        </p>
-      </div>
-
-      <div class="meet-out panel">
-        <div class="meet-head">
-          <h3>Two lines do the work</h3>
-          <p class="meet-lede">
-            In a file like <code>tests/tasks.test.ts</code>, the title names the
-            operation and the assertion names the response. Both are matched
-            back to the spec.
-          </p>
+        <div class="fw-panel" id="fw-panel-bun" role="tabpanel" aria-labelledby="fw-tab-bun" hidden>
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.ts</span>
+            <span class="note"><code>test()</code> is read exactly like <code>it()</code>.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">import { describe, test, expect } from "bun:test";</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln"><span class="src">  test(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toBe(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
         </div>
-
-        <div class="meet-code">
-          <span class="ln">describe(<span class="c2">"POST /tasks"</span>, () =&gt; {</span>
-          <span class="ann">the operation <b>&rarr; matched to your spec</b></span>
-
-          <span class="ln">  it(<span class="c1">"creates a task"</span>, async () =&gt; {</span>
-          <span></span>
-
-          <span class="ln">    expect(res.status).<span class="c2">toBe(201)</span>;</span>
-          <span class="ann">the response <b>&rarr; matched to that operation</b></span>
-
-          <span class="ln">  });</span>
-          <span></span>
-
-          <span class="ln">});</span>
-          <span></span>
-        </div>
-
-        <div class="meet-result">
-          <span class="lbl">In the report</span>
-          <span class="method" data-m="post">POST</span>
-          <span class="path">/tasks</span>
-          <span class="marks">
-            <span class="mark" data-s="ok"></span>
-            <span class="mark" data-s="ok"></span>
-            <span class="mark" data-s="gap"></span>
-            <span class="mark" data-s="undoc"></span>
-          </span>
-          <span class="stamp" data-s="ok">201 verified</span>
+        <div class="fw-panel" id="fw-panel-jasmine" role="tabpanel" aria-labelledby="fw-tab-jasmine" hidden>
+          <div class="fw-bar">
+            <span class="file">tests/tasks.test.js</span>
+            <span class="note"><code>toEqual()</code> is read exactly like <code>toBe()</code>.</span>
+          </div>
+          <div class="fw-code">
+            <div class="ln"><span class="src"><span class="dim">// describe, it and expect are globals</span></span></div>
+            <div class="ln"><span class="src"> </span></div>
+            <div class="ln" data-read><span class="src">describe(<span class="tk">"POST /tasks"</span>, () =&gt; {</span><span class="rd">operation</span></div>
+            <div class="ln"><span class="src">  it(<span class="dim">"creates a task"</span>, async () =&gt; {</span></div>
+            <div class="ln" data-read><span class="src">    expect(res.status).<span class="tk">toEqual(201)</span>;</span><span class="rd">response</span></div>
+            <div class="ln"><span class="src">  });</span></div>
+            <div class="ln"><span class="src">});</span></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1798,7 +1674,9 @@
             </div>
           </div>
         </div>
-        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>. Pass <code>--port</code> to host it somewhere else.</p>
+        <p class="pm-note">Serves the report at <span class="c2">localhost:3001</span>. Pass <code>--port</code> to host it somewhere else, or
+          <code>--spec</code> when your OpenAPI file lives somewhere the
+          shallowest <code>openapi*</code> / <code>swagger*</code> lookup will not find it.</p>
       </div>
     </div>
   </div>
@@ -1978,6 +1856,37 @@ jobs:
           var next = tabs[(i + step + tabs.length) % tabs.length];
           select(next.getAttribute('data-pm'), next);
         });
+      });
+    });
+  })();
+
+  // Framework tabs: one row, one card. Kept separate from the package-manager
+  // switcher above because that one syncs every .pm-tabs group on the page,
+  // which is right for "which manager am I" and wrong for "which runner is this
+  // example in". Every panel stays in the DOM, so no-JS renders the first one.
+  (function () {
+    var row = document.querySelector('.fw-tabs');
+    if (!row) return;
+    var tabs = Array.prototype.slice.call(row.querySelectorAll('[role="tab"]'));
+
+    function select(tab, focus) {
+      tabs.forEach(function (other) {
+        var on = other === tab;
+        other.setAttribute('aria-selected', String(on));
+        other.tabIndex = on ? 0 : -1;
+        var pane = document.getElementById(other.getAttribute('aria-controls'));
+        if (pane) pane.hidden = !on;
+      });
+      if (focus) tab.focus();
+    }
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { select(tab); });
+      tab.addEventListener('keydown', function (event) {
+        var step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        select(tabs[(i + step + tabs.length) % tabs.length], true);
       });
     });
   })();
