@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
   "repository": "github:Durable-Quality/specproof",
@@ -21,9 +21,7 @@
     "components",
     "dist",
     "lib",
-    "!app/proof-contract.test.ts",
     "!app/proof.generated.json",
-    "!lib/api-test-coverage.test.ts",
     "next.config.js",
     "postcss.config.js",
     "tailwind.config.ts",
@@ -45,8 +43,11 @@
     "manual:test": "bun scripts/manual-dev-watch.ts test",
     "prepublishOnly": "npm run build:cli",
     "start": "bunx next start --port 3001",
-    "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:unit:watch": "vitest tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:integration:watch": "vitest tests/integration"
   },
   "packageManager": "bun@1.1.38",
   "dependencies": {
