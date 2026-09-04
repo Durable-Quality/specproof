@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An operation's tally now counts every status row it prints, including synthesized and undocumented ones, so the fraction matches the marks beside it (the bundled example's total goes from 10/17 to 11/24).
 - The report's assertion count now shows for any verdict with assertions, not just spec-documented ones.
 - The "Built by Durable Quality" link now points at the studio's current handle (`x.com/DurableQA`).
+- The marketing footer's version tag was hardcoded at `v0.7.1`; it now reads `v0.9.2`.
 
 ## [0.9.1] - 2026-09-04
 
