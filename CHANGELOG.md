@@ -5,10 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.1] - 2026-09-04
+## [0.9.0] - 2026-09-04
+
+### Added
+- A `NO DESCRIPTION` stamp marks an operation with no `summary` and a response with no `description` in the OpenAPI spec, so a missing description reads as the spec gap it is instead of as blank space.
 
 ### Fixed
-- A status code asserted in tests but absent from the OpenAPI spec no longer replaces the route's description with "asserted in tests, but absent from the OpenAPI spec". A documented status always shows the spec's own description as written, and an undocumented one, having no description in the spec, is captioned with the title of the test that asserts it. The UNDOCUMENTED stamp remains the marker for that state.
+- A status code asserted in tests but absent from the OpenAPI spec no longer replaces the route's description with "asserted in tests, but absent from the OpenAPI spec". A description is only ever the spec's own, shown as written; SpecProof never substitutes text for it.
 
 ## [0.8.0] - 2026-08-03
 

@@ -165,6 +165,11 @@
   );
 }
 
+.sp-stamp[data-verdict="nodesc"] {
+  color: var(--sp-faint);
+  border: 1px dashed var(--sp-hair-strong);
+}
+
 /* clickable stamps (verified / undocumented open the test-code panel) */
 button.sp-stamp {
   cursor: pointer;

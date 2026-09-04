@@ -32,15 +32,6 @@ function verdictOf(status: StatusCoverage): 'ok' | 'gap' | 'undoc' {
   return status.assertions > 0 ? 'ok' : 'gap';
 }
 
-/**
- * What to caption a status row with. The spec's own description, verbatim,
- * whenever there is one — it is never substituted or annotated. An
- * undocumented status has none by definition, so it borrows the title of the
- * test that asserts it rather than reading as a blank row.
- */
-function captionOf(status: StatusCoverage): string {
-  return status.description || status.snippets[0]?.title || '';
-}
 
 /** Render {slug} path segments in a muted tone so parameters read apart */
 function PathInk({ specPath }: { specPath: string }) {
@@ -165,7 +156,17 @@ function StatusList({
             >
               {status.code}
             </span>
-            <span className="text-xs text-muted-foreground">{captionOf(status)}</span>
+            {status.description ? (
+              <span className="text-xs text-muted-foreground">{status.description}</span>
+            ) : (
+              <span
+                className="sp-stamp shrink-0"
+                data-verdict="nodesc"
+                title="This response has no description in the OpenAPI spec"
+              >
+                NO DESCRIPTION
+              </span>
+            )}
             <span className="sp-leader" aria-hidden />
             {verdict === 'ok' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">
@@ -226,11 +227,17 @@ function OperationRow({
         </span>
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-5">
-        {operation.summary && (
-          <p className="mb-3 pl-[calc(0.6rem+3px)] text-xs text-muted-foreground">
-            {operation.summary}
-          </p>
-        )}
+        <p className="mb-3 pl-[calc(0.6rem+3px)] text-xs text-muted-foreground">
+          {operation.summary || (
+            <span
+              className="sp-stamp"
+              data-verdict="nodesc"
+              title="This operation has no summary in the OpenAPI spec"
+            >
+              NO DESCRIPTION
+            </span>
+          )}
+        </p>
         <StatusList operation={operation} onShowEvidence={onShowEvidence} />
       </AccordionContent>
     </AccordionItem>
