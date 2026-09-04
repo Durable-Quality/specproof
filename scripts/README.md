@@ -67,6 +67,10 @@ tag, route and status row, including the marks, tallies and stamps, and leaves
 out one thing on purpose: the stamp that opens the test-code panel, which
 needs a screenful the hero does not have.
 
+It also rewrites the footer's `<span id="r-version">` from `package.json`'s
+`version`, so a version bump can't leave that tag pointing at a stale release
+the way it once did.
+
 ## manual-dev-watch.ts
 
 Manual harness for the "develop-alongside" loop: `specproof dev` on a repo

@@ -112,7 +112,7 @@ SPECPROOF_REPO=/path/to/target-repo bun run generate:proof
 git add app/proof.generated.json && git commit
 ```
 
-The marketing site's hero carries a mirror of that same proof. `bun run generate:mockup` (`scripts/generate-mockup.ts`) rewrites the markup between the two marker comments inside `marketing/index.html`'s `<div class="report">` from `app/proof.generated.json`, so the mockup shows the audit the app renders rather than a hand-written impression of it. The page around it, its CSS, and the accordion script at the foot of the file are hand-maintained; the mockup has the same tag and route accordions the app does, minus the stamp that opens the test-code panel. Regenerate it whenever the example fixture changes: nothing tests it, so a stale mockup fails nothing and simply lies.
+The marketing site's hero carries a mirror of that same proof. `bun run generate:mockup` (`scripts/generate-mockup.ts`) rewrites the markup between the two marker comments inside `marketing/index.html`'s `<div class="report">` from `app/proof.generated.json`, so the mockup shows the audit the app renders rather than a hand-written impression of it. The page around it, its CSS, and the accordion script at the foot of the file are hand-maintained; the mockup has the same tag and route accordions the app does, minus the stamp that opens the test-code panel. The same run also rewrites the footer's `<span id="r-version">` from `package.json`'s `version`, so a release bump can't leave that tag pointing at a stale version the way it once did. Regenerate it whenever the example fixture changes or the version bumps: nothing tests it, so a stale mockup fails nothing and simply lies.
 
 ## CI & Releasing
 
