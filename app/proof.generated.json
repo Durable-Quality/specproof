@@ -38,6 +38,14 @@
                   "startLine": 16
                 }
               ]
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 2,
@@ -83,6 +91,14 @@
                   "startLine": 21
                 }
               ]
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 2,
@@ -140,6 +156,14 @@
                   "startLine": 47
                 }
               ]
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 2,
@@ -177,6 +201,14 @@
                   "startLine": 66
                 }
               ]
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 2,
@@ -215,6 +247,14 @@
               "documented": true,
               "assertions": 0,
               "snippets": []
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 1,
@@ -240,6 +280,14 @@
               "documented": true,
               "assertions": 0,
               "snippets": []
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 0,
@@ -273,6 +321,14 @@
               "documented": true,
               "assertions": 0,
               "snippets": []
+            },
+            {
+              "code": "500",
+              "description": "",
+              "documented": false,
+              "assertions": 0,
+              "snippets": [],
+              "expected": true
             }
           ],
           "coveredCount": 0,

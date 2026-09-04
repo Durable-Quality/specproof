@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A `NO DESCRIPTION` stamp marks an operation with no `summary` and a response with no `description` in the OpenAPI spec, so a missing description reads as the spec gap it is instead of as blank space.
+- A `MISSING FROM SPEC` stamp marks the standard responses an operation never documents, greying the status code so it reads as SpecProof's expectation rather than the API's own: `500` for every operation, `404` where a path parameter addresses a resource, and `400` where the operation declares a request body. The trailing verdict on those rows is `NO TEST`, since nothing asserts them.
+
+### Changed
+- `UNDOCUMENTED` is now reserved for a status the tests assert that the spec never mentions. A status with no assertions reads as `NO TEST` whether the spec documents it or not.
 
 ### Fixed
 - A status code asserted in tests but absent from the OpenAPI spec no longer replaces the route's description with "asserted in tests, but absent from the OpenAPI spec". A description is only ever the spec's own, shown as written; SpecProof never substitutes text for it.

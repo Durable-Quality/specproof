@@ -27,9 +27,16 @@ import type {
 // Helpers
 // ============================================================================
 
+/**
+ * The test verdict for one status. Keyed off the assertions first: with none,
+ * the row is a gap whether the spec documents the status (a response nobody
+ * tests) or SpecProof expected it and the spec omits it (`status.expected`).
+ * UNDOCUMENTED is reserved for what it has always meant: a status the tests do
+ * assert, that the spec never mentions.
+ */
 function verdictOf(status: StatusCoverage): 'ok' | 'gap' | 'undoc' {
-  if (!status.documented) return 'undoc';
-  return status.assertions > 0 ? 'ok' : 'gap';
+  if (status.assertions === 0) return 'gap';
+  return status.documented ? 'ok' : 'undoc';
 }
 
 
@@ -153,10 +160,19 @@ function StatusList({
             <span
               className="sp-code w-8 shrink-0 text-sm font-semibold"
               data-class={status.code[0]}
+              data-absent={status.expected ? '' : undefined}
             >
               {status.code}
             </span>
-            {status.description ? (
+            {status.expected ? (
+              <span
+                className="sp-stamp shrink-0"
+                data-verdict="nospec"
+                title={`The OpenAPI spec documents no ${status.code} response for this operation`}
+              >
+                MISSING FROM SPEC
+              </span>
+            ) : status.description ? (
               <span className="text-xs text-muted-foreground">{status.description}</span>
             ) : (
               <span
@@ -219,7 +235,11 @@ function OperationRow({
         <PathInk specPath={operation.specPath} />
         <span className="sp-marks ml-auto shrink-0" aria-hidden>
           {operation.statuses.map((status) => (
-            <span key={status.code} className="sp-mark" data-state={verdictOf(status)} />
+            <span
+              key={status.code}
+              className="sp-mark"
+              data-state={status.expected ? 'absent' : verdictOf(status)}
+            />
           ))}
         </span>
         <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
