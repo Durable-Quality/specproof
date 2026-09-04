@@ -123,6 +123,11 @@
   border-color: var(--sp-gap);
   border-style: dashed;
 }
+/* a standard status missing from the spec: a hole, not a failing verdict */
+.sp-mark[data-state="absent"] {
+  border-color: var(--sp-hair-strong);
+  border-style: dashed;
+}
 .sp-mark[data-state="undoc"] {
   border-color: var(--sp-undoc);
   background: repeating-linear-gradient(
@@ -137,6 +142,11 @@
 .sp-code[data-class="3"] { color: var(--sp-post); }
 .sp-code[data-class="4"] { color: var(--sp-undoc); }
 .sp-code[data-class="5"] { color: var(--sp-gap); }
+
+/* a status the spec does not document, whether a test asserts it or SpecProof
+   expected it: the code is nowhere in the API definition, so it stays grey
+   rather than taking its class color */
+.sp-code[data-absent] { color: var(--sp-faint); }
 
 /* ---- verdict stamps ----------------------------------------------------------- */
 .sp-stamp {
@@ -163,6 +173,13 @@
     color-mix(in srgb, var(--sp-undoc) 10%, transparent) 0 4px,
     transparent 4px 8px
   );
+}
+
+/* quiet stamps for spec holes: what is absent, not what the tests found */
+.sp-stamp[data-verdict="nodesc"],
+.sp-stamp[data-verdict="nospec"] {
+  color: var(--sp-faint);
+  border: 1px dashed var(--sp-hair-strong);
 }
 
 /* clickable stamps (verified / undocumented open the test-code panel) */

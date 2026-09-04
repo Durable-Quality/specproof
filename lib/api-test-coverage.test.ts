@@ -7,6 +7,7 @@ import {
   buildCoverageReport,
   collectTestEvidence,
   dedent,
+  expectedStatuses,
   extractItBlocks,
   findSpecCandidates,
   loadSpec,
@@ -475,6 +476,24 @@ const widgetDescribe = (title: string, its: Array<[string, string]>) =>
     '});'
   ].join('\n');
 
+describe('expectedStatuses', () => {
+  it('expects 500 of every operation', () => {
+    expect(expectedStatuses('/widgets', {})).toEqual(['500']);
+  });
+
+  it('expects 404 where a path parameter addresses a resource', () => {
+    expect(expectedStatuses('/widgets/{widgetId}', {})).toEqual(['404', '500']);
+    expect(expectedStatuses('/widgets/{widgetId}/parts/{partId}', {})).toEqual(['404', '500']);
+  });
+
+  it('expects 400 where the operation declares a request body', () => {
+    expect(expectedStatuses('/widgets', { requestBody: { content: {} } })).toEqual(['400', '500']);
+    // The method is not the signal: a body is. A POST without one is not
+    // assumed to reject anything.
+    expect(expectedStatuses('/widgets', { summary: 'Create a widget' })).toEqual(['500']);
+  });
+});
+
 describe('collectTestEvidence', () => {
   it('lets the file with the most it() blocks win an operation', () => {
     const root = makeRepo({
@@ -600,9 +619,11 @@ describe('buildCoverageReport', () => {
       .find((t) => t.tag === 'Widgets')!
       .operations.find((op) => op.method === 'post')!;
 
-    expect(post.statuses.map((s) => s.code)).toEqual(['201', '422']);
+    // 500 is synthesized: expected of every operation, documented by none here.
+    expect(post.statuses.map((s) => s.code)).toEqual(['201', '422', '500']);
     expect(post.statuses[1].documented).toBe(false);
     expect(post.statuses[1].assertions).toBe(1);
+    expect(post.statuses[1].expected).toBeUndefined();
     // Undocumented statuses count toward neither coverage nor gaps.
     expect(post.coveredCount).toBe(1);
     expect(post.gapCount).toBe(0);
@@ -648,6 +669,54 @@ describe('buildCoverageReport', () => {
     expect(JSON.stringify(fromYaml, null, 2)).toBe(JSON.stringify(fromJson, null, 2));
     expect(fromYaml.operationCount).toBe(4);
     expect(fromYaml.tags.map((t) => t.tag)).toEqual(['Widgets', 'Admin', 'Other']);
+  });
+
+  it('synthesizes the standard statuses the spec never documents', () => {
+    const report = buildCoverageReport(fixtureRepo());
+    const del = report.tags.find((t) => t.tag === 'Admin')!.operations[0];
+
+    // 204 from the spec, then the two the operation's shape implies: 404 for
+    // the {widgetId} it addresses, 500 for the server behind it.
+    expect(del.statuses.map((s) => s.code)).toEqual(['204', '404', '500']);
+    const missing = del.statuses.filter((s) => s.expected);
+    expect(missing.map((s) => s.code)).toEqual(['404', '500']);
+    for (const status of missing) {
+      expect(status.documented).toBe(false);
+      expect(status.assertions).toBe(0);
+      expect(status.description).toBe('');
+      expect(status.snippets).toEqual([]);
+    }
+
+    // A hole in the spec is not a testing gap: neither count moves, so the
+    // verified percentage still measures the documented surface.
+    expect(del.coveredCount).toBe(0);
+    expect(del.gapCount).toBe(1);
+    expect(report.totalCount).toBe(5);
+    expect(report.coveredCount).toBe(3);
+  });
+
+  it('never synthesizes a status the spec documents or the tests assert', () => {
+    const root = makeRepo({
+      'openapi.json': JSON.stringify({
+        paths: {
+          '/widgets/{widgetId}': {
+            get: {
+              responses: { '200': { description: 'OK' }, '404': { description: 'Gone' } }
+            }
+          }
+        }
+      }),
+      'tests/widgets.test.ts': widgetDescribe('GET /widgets/{widgetId}', [
+        ['blows up', '500']
+      ])
+    });
+
+    const op = buildCoverageReport(root).tags[0].operations[0];
+    expect(op.statuses.map((s) => s.code)).toEqual(['200', '404', '500']);
+    // 404 came from the spec and 500 from a test assertion, so neither is
+    // SpecProof's own row: the codes appear once each, unflagged.
+    expect(op.statuses.every((s) => s.expected === undefined)).toBe(true);
+    expect(op.statuses[2].assertions).toBe(1);
   });
 
   it('throws when the repo has no spec to audit', () => {

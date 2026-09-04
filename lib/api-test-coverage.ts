@@ -177,16 +177,19 @@ export function loadSpec(specPath: string): OpenApiDocument {
 // Types
 // ============================================================================
 
+/** The slice of one operation the analyzer reads. */
+export interface OpenApiOperation {
+  summary?: string;
+  tags?: string[];
+  /** Only its presence is read: a declared payload is what implies a 400. */
+  requestBody?: unknown;
+  responses?: Record<string, { description?: string }>;
+}
+
 /** The slice of an OpenAPI/Swagger document the analyzer reads. */
 export interface OpenApiDocument {
   tags?: Array<{ name: string; description?: string }>;
-  paths?: Record<
-    string,
-    Record<
-      string,
-      { summary?: string; tags?: string[]; responses?: Record<string, { description?: string }> }
-    >
-  >;
+  paths?: Record<string, Record<string, OpenApiOperation>>;
 }
 
 export interface TestSnippet {
@@ -209,6 +212,13 @@ export interface StatusCoverage {
   assertions: number;
   /** The it() blocks asserting this status */
   snippets: TestSnippet[];
+  /**
+   * Set only on a status neither source produced: one `expectedStatuses` says
+   * this operation's shape implies, that the spec never documents. Never set
+   * on a status read from the spec or asserted by a test, so it marks exactly
+   * the rows whose code is SpecProof's rather than the API's.
+   */
+  expected?: boolean;
 }
 
 export interface OperationCoverage {
@@ -294,6 +304,25 @@ function normalizePath(urlPath: string): string {
       part.replace(/^\{(.+)\}$/, '{}').replace(/^\[(.+)\]$/, '{}').replace(/^:(.+)$/, '{}')
     )
     .join('/');
+}
+
+/**
+ * The response statuses an operation of this shape is expected to document,
+ * regardless of what it actually does. Deliberately a short list rather than a
+ * house style: every entry is implied by something in the operation itself, so
+ * a spec that omits one has a hole in it rather than a different opinion.
+ *
+ *   500: any operation can fail on the server.
+ *   404: a path parameter addresses a resource that may not exist.
+ *   400: a declared request body can arrive malformed.
+ *
+ * Returned sorted, so the synthesized rows land in a stable order.
+ */
+export function expectedStatuses(specPath: string, operation: OpenApiOperation): string[] {
+  const expected = ['500'];
+  if (/\{[^}]+\}/.test(specPath)) expected.push('404');
+  if (operation.requestBody !== undefined) expected.push('400');
+  return expected.sort();
 }
 
 /** Join key for one operation: "get /api/repo/{}" */
@@ -461,6 +490,21 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
             documented: false,
             assertions,
             snippets: methodEvidence?.snippets.get(code) ?? []
+          });
+        }
+      }
+      // Standard statuses this operation's shape implies that neither source
+      // accounts for. They are a hole in the definition, not a testing gap, so
+      // they count toward neither coverage nor gapCount below.
+      for (const code of expectedStatuses(specPathKey, operation)) {
+        if (!statuses.some((s) => s.code === code)) {
+          statuses.push({
+            code,
+            description: '',
+            documented: false,
+            assertions: 0,
+            snippets: [],
+            expected: true
           });
         }
       }

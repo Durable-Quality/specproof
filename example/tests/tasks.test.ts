@@ -81,3 +81,14 @@ describe("PATCH /tasks/{taskId}", () => {
     expect(res.body.title).toBe("Refine and prioritize the backlog");
   });
 });
+
+describe("DELETE /tasks/{taskId}", () => {
+  it("returns 500 when the task store refuses the delete", async () => {
+    // task_wedged is seeded to fail on delete, so the route's error path is
+    // exercised end to end rather than mocked out.
+    const res = await api.delete("/tasks/task_wedged");
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("could not delete task");
+  });
+});

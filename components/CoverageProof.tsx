@@ -27,9 +27,54 @@ import type {
 // Helpers
 // ============================================================================
 
+/**
+ * The test verdict for one status. Keyed off the assertions first: with none,
+ * the row is a gap whether the spec documents the status (a response nobody
+ * tests) or SpecProof expected it and the spec omits it (`status.expected`).
+ * UNDOCUMENTED is reserved for what it has always meant: a status the tests do
+ * assert, that the spec never mentions.
+ */
 function verdictOf(status: StatusCoverage): 'ok' | 'gap' | 'undoc' {
-  if (!status.documented) return 'undoc';
-  return status.assertions > 0 ? 'ok' : 'gap';
+  if (status.assertions === 0) return 'gap';
+  return status.documented ? 'ok' : 'undoc';
+}
+
+
+/**
+ * What stands in the description slot for one status: the spec's own words, or
+ * a quiet stamp naming which of the two ways the spec is silent. The two are
+ * different holes and read differently. MISSING FROM SPEC is about the status
+ * itself, so it shows whether the row was synthesized or produced by a test
+ * assertion the spec never documents; NO DESCRIPTION is about a response the
+ * spec does list, and left blank.
+ *
+ * Neither ever stands in for text the spec did write: a description shown here
+ * is the spec's, verbatim.
+ */
+function StatusDescription({ status }: { status: StatusCoverage }) {
+  if (!status.documented) {
+    return (
+      <span
+        className="sp-stamp shrink-0"
+        data-verdict="nospec"
+        title={`The OpenAPI spec documents no ${status.code} response for this operation`}
+      >
+        MISSING FROM SPEC
+      </span>
+    );
+  }
+  if (!status.description) {
+    return (
+      <span
+        className="sp-stamp shrink-0"
+        data-verdict="nodesc"
+        title="This response has no description in the OpenAPI spec"
+      >
+        NO DESCRIPTION
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">{status.description}</span>;
 }
 
 /** Render {slug} path segments in a muted tone so parameters read apart */
@@ -103,18 +148,18 @@ function EvidencePanel({
                   {evidence.operation.method}
                 </span>
                 <span className="font-mono text-sm">{evidence.operation.specPath}</span>
-                <span className="sp-code text-lg font-semibold" data-class={evidence.status.code[0]}>
+                <span
+                  className="sp-code text-lg font-semibold"
+                  data-class={evidence.status.code[0]}
+                  data-absent={evidence.status.documented ? undefined : ''}
+                >
                   {evidence.status.code}
                 </span>
               </SheetTitle>
-              <SheetDescription className="font-mono text-xs">
-                {evidence.status.documented ? (
-                  evidence.status.description
-                ) : (
-                  <span className="text-[var(--sp-undoc)]">
-                    Asserted in tests but absent from the OpenAPI spec.
-                  </span>
-                )}
+              <SheetDescription className="font-mono text-xs" asChild>
+                <div>
+                  <StatusDescription status={evidence.status} />
+                </div>
               </SheetDescription>
             </SheetHeader>
 
@@ -158,14 +203,11 @@ function StatusList({
             <span
               className="sp-code w-8 shrink-0 text-sm font-semibold"
               data-class={status.code[0]}
+              data-absent={status.documented ? undefined : ''}
             >
               {status.code}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {status.documented
-                ? status.description
-                : 'asserted in tests, but absent from the OpenAPI spec'}
-            </span>
+            <StatusDescription status={status} />
             <span className="sp-leader" aria-hidden />
             {verdict === 'ok' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">
@@ -218,7 +260,11 @@ function OperationRow({
         <PathInk specPath={operation.specPath} />
         <span className="sp-marks ml-auto shrink-0" aria-hidden>
           {operation.statuses.map((status) => (
-            <span key={status.code} className="sp-mark" data-state={verdictOf(status)} />
+            <span
+              key={status.code}
+              className="sp-mark"
+              data-state={status.expected ? 'absent' : verdictOf(status)}
+            />
           ))}
         </span>
         <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
@@ -226,11 +272,17 @@ function OperationRow({
         </span>
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-5">
-        {operation.summary && (
-          <p className="mb-3 pl-[calc(0.6rem+3px)] text-xs text-muted-foreground">
-            {operation.summary}
-          </p>
-        )}
+        <p className="mb-3 pl-[calc(0.6rem+3px)] text-xs text-muted-foreground">
+          {operation.summary || (
+            <span
+              className="sp-stamp"
+              data-verdict="nodesc"
+              title="This operation has no summary in the OpenAPI spec"
+            >
+              NO DESCRIPTION
+            </span>
+          )}
+        </p>
         <StatusList operation={operation} onShowEvidence={onShowEvidence} />
       </AccordionContent>
     </AccordionItem>
