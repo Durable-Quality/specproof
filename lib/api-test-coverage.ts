@@ -342,8 +342,9 @@ export function dedent(block: string): string {
 
 /**
  * Extract the it()/test() blocks from a describe segment. Blocks end at the
- * first `});` back at the block's own indentation — reliable for
- * prettier-consistent test files.
+ * first `})` (with or without a trailing semicolon) back at the block's own
+ * indentation — reliable for prettier-consistent test files regardless of
+ * the audited repo's semicolon style.
  */
 export function extractItBlocks(
   segment: string,
@@ -358,9 +359,10 @@ export function extractItBlocks(
     const indent = match[1];
     const title = match[2];
     const blockStart = match.index + (match[0].startsWith('\n') ? 1 : 0);
-    const closer = `\n${indent}});`;
+    const closer = `\n${indent}})`;
     const closeIndex = segment.indexOf(closer, blockStart);
-    const blockEnd = closeIndex === -1 ? segment.length : closeIndex + closer.length;
+    let blockEnd = closeIndex === -1 ? segment.length : closeIndex + closer.length;
+    if (closeIndex !== -1 && segment[blockEnd] === ';') blockEnd += 1;
     const source = segment.slice(blockStart, blockEnd);
 
     blocks.push({
