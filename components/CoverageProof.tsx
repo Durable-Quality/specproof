@@ -108,13 +108,7 @@ function EvidencePanel({
                 </span>
               </SheetTitle>
               <SheetDescription className="font-mono text-xs">
-                {evidence.status.documented ? (
-                  evidence.status.description
-                ) : (
-                  <span className="text-[var(--sp-undoc)]">
-                    Asserted in tests but absent from the OpenAPI spec.
-                  </span>
-                )}
+                {evidence.status.description}
               </SheetDescription>
             </SheetHeader>
 
@@ -161,11 +155,7 @@ function StatusList({
             >
               {status.code}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {status.documented
-                ? status.description
-                : 'asserted in tests, but absent from the OpenAPI spec'}
-            </span>
+            <span className="text-xs text-muted-foreground">{status.description}</span>
             <span className="sp-leader" aria-hidden />
             {verdict === 'ok' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">
