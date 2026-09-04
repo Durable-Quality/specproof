@@ -39,7 +39,8 @@
         "responses": {
           "201": { "description": "Task created" },
           "400": { "description": "Malformed request body" },
-          "401": { "description": "Missing or invalid bearer token" }
+          "401": { "description": "Missing or invalid bearer token" },
+          "422": { "description": "" }
         }
       }
     },

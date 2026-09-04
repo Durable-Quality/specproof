@@ -147,7 +147,7 @@
             {
               "code": "422",
               "description": "",
-              "documented": false,
+              "documented": true,
               "assertions": 1,
               "snippets": [
                 {
@@ -166,7 +166,7 @@
               "expected": true
             }
           ],
-          "coveredCount": 2,
+          "coveredCount": 3,
           "gapCount": 1
         },
         {
@@ -299,8 +299,8 @@
           "gapCount": 2
         }
       ],
-      "coveredCount": 7,
-      "totalCount": 12
+      "coveredCount": 8,
+      "totalCount": 13
     },
     {
       "tag": "Projects",
@@ -345,7 +345,7 @@
     }
   ],
   "operationCount": 7,
-  "coveredCount": 9,
-  "totalCount": 16,
+  "coveredCount": 10,
+  "totalCount": 17,
   "untestedOperations": 1
 }
