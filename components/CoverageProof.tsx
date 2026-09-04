@@ -40,6 +40,43 @@ function verdictOf(status: StatusCoverage): 'ok' | 'gap' | 'undoc' {
 }
 
 
+/**
+ * What stands in the description slot for one status: the spec's own words, or
+ * a quiet stamp naming which of the two ways the spec is silent. The two are
+ * different holes and read differently. MISSING FROM SPEC is about the status
+ * itself, so it shows whether the row was synthesized or produced by a test
+ * assertion the spec never documents; NO DESCRIPTION is about a response the
+ * spec does list, and left blank.
+ *
+ * Neither ever stands in for text the spec did write: a description shown here
+ * is the spec's, verbatim.
+ */
+function StatusDescription({ status }: { status: StatusCoverage }) {
+  if (!status.documented) {
+    return (
+      <span
+        className="sp-stamp shrink-0"
+        data-verdict="nospec"
+        title={`The OpenAPI spec documents no ${status.code} response for this operation`}
+      >
+        MISSING FROM SPEC
+      </span>
+    );
+  }
+  if (!status.description) {
+    return (
+      <span
+        className="sp-stamp shrink-0"
+        data-verdict="nodesc"
+        title="This response has no description in the OpenAPI spec"
+      >
+        NO DESCRIPTION
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">{status.description}</span>;
+}
+
 /** Render {slug} path segments in a muted tone so parameters read apart */
 function PathInk({ specPath }: { specPath: string }) {
   const parts = specPath.split(/(\{[^}]+\})/g).filter(Boolean);
@@ -111,12 +148,18 @@ function EvidencePanel({
                   {evidence.operation.method}
                 </span>
                 <span className="font-mono text-sm">{evidence.operation.specPath}</span>
-                <span className="sp-code text-lg font-semibold" data-class={evidence.status.code[0]}>
+                <span
+                  className="sp-code text-lg font-semibold"
+                  data-class={evidence.status.code[0]}
+                  data-absent={evidence.status.documented ? undefined : ''}
+                >
                   {evidence.status.code}
                 </span>
               </SheetTitle>
-              <SheetDescription className="font-mono text-xs">
-                {evidence.status.description}
+              <SheetDescription className="font-mono text-xs" asChild>
+                <div>
+                  <StatusDescription status={evidence.status} />
+                </div>
               </SheetDescription>
             </SheetHeader>
 
@@ -160,29 +203,11 @@ function StatusList({
             <span
               className="sp-code w-8 shrink-0 text-sm font-semibold"
               data-class={status.code[0]}
-              data-absent={status.expected ? '' : undefined}
+              data-absent={status.documented ? undefined : ''}
             >
               {status.code}
             </span>
-            {status.expected ? (
-              <span
-                className="sp-stamp shrink-0"
-                data-verdict="nospec"
-                title={`The OpenAPI spec documents no ${status.code} response for this operation`}
-              >
-                MISSING FROM SPEC
-              </span>
-            ) : status.description ? (
-              <span className="text-xs text-muted-foreground">{status.description}</span>
-            ) : (
-              <span
-                className="sp-stamp shrink-0"
-                data-verdict="nodesc"
-                title="This response has no description in the OpenAPI spec"
-              >
-                NO DESCRIPTION
-              </span>
-            )}
+            <StatusDescription status={status} />
             <span className="sp-leader" aria-hidden />
             {verdict === 'ok' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">

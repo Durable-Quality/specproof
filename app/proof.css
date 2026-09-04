@@ -143,8 +143,9 @@
 .sp-code[data-class="4"] { color: var(--sp-undoc); }
 .sp-code[data-class="5"] { color: var(--sp-gap); }
 
-/* a standard status the spec never documents: the code is SpecProof's, not the
-   API's, so it stays grey instead of taking its class color */
+/* a status the spec does not document, whether a test asserts it or SpecProof
+   expected it: the code is nowhere in the API definition, so it stays grey
+   rather than taking its class color */
 .sp-code[data-absent] { color: var(--sp-faint); }
 
 /* ---- verdict stamps ----------------------------------------------------------- */
