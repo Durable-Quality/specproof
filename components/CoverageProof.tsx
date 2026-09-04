@@ -209,7 +209,7 @@ function StatusList({
             </span>
             <StatusDescription status={status} />
             <span className="sp-leader" aria-hidden />
-            {verdict === 'ok' && (
+            {verdict !== 'gap' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">
                 {status.assertions} assertion{status.assertions === 1 ? '' : 's'}
               </span>
@@ -247,7 +247,9 @@ function OperationRow({
   operation: OperationCoverage;
   onShowEvidence: (evidence: Evidence) => void;
 }) {
-  const documented = operation.statuses.filter((s) => s.documented);
+  // One tally over the rows the accordion prints, so the marks beside it and
+  // the statuses inside it are always counting the same thing.
+  const total = operation.coveredCount + operation.gapCount;
   return (
     <AccordionItem
       value={`${operation.method} ${operation.specPath}`}
@@ -268,7 +270,7 @@ function OperationRow({
           ))}
         </span>
         <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-          {operation.coveredCount}/{documented.length}
+          {operation.coveredCount}/{total}
         </span>
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-5">
@@ -444,7 +446,7 @@ export function CoverageProof({
           <span>
             BUILT BY{' '}
             <a
-              href="https://x.com/_DurableQuality"
+              href="https://x.com/DurableQA"
               target="_blank"
               rel="noreferrer"
               className="underline decoration-dotted underline-offset-4 transition-colors hover:text-foreground"

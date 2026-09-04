@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
   "repository": "github:Durable-Quality/specproof",
@@ -31,6 +31,7 @@
     "build": "bun run generate:proof && bunx next build",
     "build:cli": "tsc -p tsconfig.cli.json",
     "dev": "bun run generate:proof && bunx next dev --port 3001",
+    "generate:mockup": "bun scripts/generate-mockup.ts",
     "generate:proof": "bun scripts/generate-proof.ts",
     "lint": "bunx eslint . ; bunx tsc --noEmit",
     "lint:es": "bunx eslint .",

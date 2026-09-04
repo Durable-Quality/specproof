@@ -10,7 +10,7 @@
           "method": "post",
           "specPath": "/auth/login",
           "summary": "Exchange credentials for a session token",
-          "testFile": "example/tests/auth.test.ts",
+          "testFile": "example/tests/auth-login.integration.test.ts",
           "testCount": 2,
           "statuses": [
             {
@@ -49,11 +49,11 @@
             }
           ],
           "coveredCount": 2,
-          "gapCount": 0
+          "gapCount": 1
         }
       ],
       "coveredCount": 2,
-      "totalCount": 2
+      "totalCount": 3
     },
     {
       "tag": "Tasks",
@@ -63,7 +63,7 @@
           "method": "get",
           "specPath": "/tasks",
           "summary": "List tasks for the authenticated user",
-          "testFile": "example/tests/tasks.test.ts",
+          "testFile": "example/tests/tasks-list.integration.test.ts",
           "testCount": 2,
           "statuses": [
             {
@@ -102,13 +102,13 @@
             }
           ],
           "coveredCount": 2,
-          "gapCount": 0
+          "gapCount": 1
         },
         {
           "method": "post",
           "specPath": "/tasks",
           "summary": "Create a task",
-          "testFile": "example/tests/tasks.test.ts",
+          "testFile": "example/tests/tasks-create.integration.test.ts",
           "testCount": 3,
           "statuses": [
             {
@@ -120,7 +120,7 @@
                 {
                   "title": "creates a task and returns it",
                   "source": "it(\"creates a task and returns it\", async () => {\n  const res = await api.post(\"/tasks\", {\n    title: \"Ship the Q3 roadmap\",\n    projectId: \"proj_1\",\n  });\n\n  expect(res.status).toBe(201);\n  expect(res.body.id).toBeDefined();\n  expect(res.body.title).toBe(\"Ship the Q3 roadmap\");\n});",
-                  "startLine": 29
+                  "startLine": 14
                 }
               ]
             },
@@ -133,7 +133,7 @@
                 {
                   "title": "rejects a task without a title",
                   "source": "it(\"rejects a task without a title\", async () => {\n  const res = await api.post(\"/tasks\", { projectId: \"proj_1\" });\n\n  expect(res.status).toBe(400);\n  expect(res.body.error).toBe(\"title is required\");\n});",
-                  "startLine": 40
+                  "startLine": 25
                 }
               ]
             },
@@ -153,7 +153,7 @@
                 {
                   "title": "rejects a due date in the past",
                   "source": "it(\"rejects a due date in the past\", async () => {\n  const res = await api.post(\"/tasks\", {\n    title: \"Time travel\",\n    dueDate: \"1999-12-31\",\n  });\n\n  expect(res.status).toBe(422);\n});",
-                  "startLine": 47
+                  "startLine": 32
                 }
               ]
             },
@@ -167,25 +167,30 @@
             }
           ],
           "coveredCount": 3,
-          "gapCount": 1
+          "gapCount": 2
         },
         {
           "method": "get",
           "specPath": "/tasks/{taskId}",
           "summary": "Fetch a single task",
-          "testFile": "example/tests/tasks.test.ts",
-          "testCount": 2,
+          "testFile": "example/tests/tasks-get.integration.test.ts",
+          "testCount": 3,
           "statuses": [
             {
               "code": "200",
               "description": "The task",
               "documented": true,
-              "assertions": 1,
+              "assertions": 2,
               "snippets": [
                 {
                   "title": "returns a task by id",
                   "source": "it(\"returns a task by id\", async () => {\n  const created = await api.post(\"/tasks\", { title: \"Write release notes\" });\n  const res = await api.get(`/tasks/${created.body.id}`);\n\n  expect(res.status).toBe(200);\n  expect(res.body.id).toBe(created.body.id);\n});",
-                  "startLine": 58
+                  "startLine": 14
+                },
+                {
+                  "title": "includes the task title in the response",
+                  "source": "it(\"includes the task title in the response\", async () => {\n  const created = await api.post(\"/tasks\", { title: \"Draft the roadmap\" });\n  const res = await api.get(`/tasks/${created.body.id}`);\n\n  expect(res.status).toBe(200);\n  expect(res.body.title).toBe(\"Draft the roadmap\");\n});",
+                  "startLine": 22
                 }
               ]
             },
@@ -198,7 +203,7 @@
                 {
                   "title": "returns 404 for an unknown task id",
                   "source": "it(\"returns 404 for an unknown task id\", async () => {\n  const res = await api.get(\"/tasks/task_does_not_exist\");\n\n  expect(res.status).toBe(404);\n});",
-                  "startLine": 66
+                  "startLine": 30
                 }
               ]
             },
@@ -212,25 +217,30 @@
             }
           ],
           "coveredCount": 2,
-          "gapCount": 0
+          "gapCount": 1
         },
         {
           "method": "patch",
           "specPath": "/tasks/{taskId}",
           "summary": "Update a task's fields",
-          "testFile": "example/tests/tasks.test.ts",
-          "testCount": 1,
+          "testFile": "example/tests/tasks-update.integration.test.ts",
+          "testCount": 2,
           "statuses": [
             {
               "code": "200",
               "description": "Updated task",
               "documented": true,
-              "assertions": 1,
+              "assertions": 2,
               "snippets": [
                 {
                   "title": "updates the fields of a task",
                   "source": "it(\"updates the fields of a task\", async () => {\n  const created = await api.post(\"/tasks\", { title: \"Refine the backlog\" });\n  const res = await api.patch(`/tasks/${created.body.id}`, {\n    title: \"Refine and prioritize the backlog\",\n  });\n\n  expect(res.status).toBe(200);\n  expect(res.body.title).toBe(\"Refine and prioritize the backlog\");\n});",
-                  "startLine": 74
+                  "startLine": 14
+                },
+                {
+                  "title": "allows updating a single field",
+                  "source": "it(\"allows updating a single field\", async () => {\n  const created = await api.post(\"/tasks\", { title: \"Plan the offsite\" });\n  const res = await api.patch(`/tasks/${created.body.id}`, {\n    status: \"in_progress\",\n  });\n\n  expect(res.status).toBe(200);\n  expect(res.body.status).toBe(\"in_progress\");\n});",
+                  "startLine": 24
                 }
               ]
             },
@@ -258,13 +268,13 @@
             }
           ],
           "coveredCount": 1,
-          "gapCount": 2
+          "gapCount": 3
         },
         {
           "method": "delete",
           "specPath": "/tasks/{taskId}",
           "summary": "Delete a task",
-          "testFile": "example/tests/tasks.test.ts",
+          "testFile": "example/tests/tasks-delete.integration.test.ts",
           "testCount": 1,
           "statuses": [
             {
@@ -290,17 +300,17 @@
                 {
                   "title": "returns 500 when the task store refuses the delete",
                   "source": "it(\"returns 500 when the task store refuses the delete\", async () => {\n  // task_wedged is seeded to fail on delete, so the route's error path is\n  // exercised end to end rather than mocked out.\n  const res = await api.delete(\"/tasks/task_wedged\");\n\n  expect(res.status).toBe(500);\n  expect(res.body.error).toBe(\"could not delete task\");\n});",
-                  "startLine": 86
+                  "startLine": 14
                 }
               ]
             }
           ],
-          "coveredCount": 0,
+          "coveredCount": 1,
           "gapCount": 2
         }
       ],
-      "coveredCount": 8,
-      "totalCount": 13
+      "coveredCount": 9,
+      "totalCount": 18
     },
     {
       "tag": "Projects",
@@ -337,15 +347,15 @@
             }
           ],
           "coveredCount": 0,
-          "gapCount": 2
+          "gapCount": 3
         }
       ],
       "coveredCount": 0,
-      "totalCount": 2
+      "totalCount": 3
     }
   ],
   "operationCount": 7,
-  "coveredCount": 10,
-  "totalCount": 17,
+  "coveredCount": 11,
+  "totalCount": 24,
   "untestedOperations": 1
 }

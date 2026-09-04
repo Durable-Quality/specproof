@@ -405,9 +405,13 @@ describe('spec discovery', () => {
     expect(run.code).toBe(0);
     expect(run.output).toMatch(/2 specs sit at the same depth/);
     expect(run.output).toMatch(/Pass --spec/);
-    // The JSON copy wins the tie, so the 404 only the YAML documents is absent.
+    // The JSON copy wins the tie, so the 404 only the YAML documents is absent
+    // (the 500 beside the 200 is SpecProof's own synthesized row).
     const proof = JSON.parse(fs.readFileSync(out, 'utf8'));
-    expect(proof.totalCount).toBe(1);
+    expect(proof.tags[0].operations[0].statuses.map((s: { code: string }) => s.code)).toEqual([
+      '200',
+      '500'
+    ]);
   });
 
   it('stays quiet when the spec is unambiguous', async () => {

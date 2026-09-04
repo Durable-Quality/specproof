@@ -25,6 +25,7 @@
     --ink: #f2f2ef;
     --muted: rgba(230, 230, 226, 0.68);
     --faint: rgba(255, 255, 255, 0.4);
+    --hair-strong: rgba(255, 255, 255, 0.22);
     --raise: rgba(255, 255, 255, 0.03);
 
     --ok: #00e5a0;
@@ -255,24 +256,43 @@
   }
   @media (max-width: 640px) { .report { padding: 1.2rem 1rem 1.4rem; } }
 
+  /* ==================================================== report: the mockup */
+  /* Every number below is the app's own, read out of components/CoverageProof.tsx
+     and app/proof.css and translated out of Tailwind. The marketing panel is as
+     wide as the app's max-w-5xl container, so nothing is scaled down to fit:
+     where the two disagree, this file is the one that is wrong, with the single
+     noted exception at .r-name. The legend and the tag description are the only
+     marketing additions.
+
+     The markup between the markers in the body is written by
+     scripts/generate-mockup.ts from the proof the app renders. */
+  .report {
+    /* the app's own theme tokens: --muted-foreground and --border */
+    --r-muted: hsl(0 0% 75%);
+    --r-border: hsl(0 0% 20%);
+  }
+
   .r-mast {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1.3rem;
+    margin-bottom: 2rem;
   }
+  /* The one deliberate departure from the app, which sets this at 3rem: the
+     hero headline above the panel runs 2.5rem to 3.8rem, so the repo name at
+     the app's size competes with it instead of reading as a masthead. */
   .r-name {
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     line-height: 1;
   }
   .r-time {
-    font-size: 0.62rem;
-    letter-spacing: 0.16em;
-    color: var(--faint);
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: var(--r-muted);
     font-variant-numeric: tabular-nums;
   }
 
@@ -282,60 +302,203 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 1rem 2rem;
-    padding: 0.9rem 0;
-    margin-bottom: 1.6rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+    border-top: 3px double var(--hair-strong);
+    border-bottom: 1px solid var(--r-border);
   }
   .r-summary .cell:last-child { text-align: right; }
   .r-summary .k {
     display: block;
-    font-size: 0.62rem;
-    letter-spacing: 0.16em;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--faint);
+    color: var(--r-muted);
   }
   .r-summary .v {
     display: block;
-    margin-top: 0.55rem;
-    font-size: 1.35rem;
+    margin-top: 0.5rem;
+    font-size: 1.5rem;
     font-weight: 600;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
-  .r-summary .v small { font-size: 0.9rem; font-weight: 400; color: var(--faint); }
+  .r-summary .v small { font-size: 1rem; font-weight: 400; color: var(--r-muted); }
 
+  /* A tag group is a <section>, which the page-level `section { padding:
+     4.75rem 0 }` rule would otherwise pad like a landing-page band: 76px
+     above and below every tag, which reads as a hole between routes. */
+  .r-sec { padding: 0; }
+  .r-sec + .r-sec { margin-top: 3.5rem; }
+  .r-tag-h { margin: 0; }
   .r-tag {
     display: flex;
+    width: 100%;
     align-items: baseline;
     gap: 1rem;
-    padding: 0.45rem 0;
-    margin-top: 1.3rem;
-  }
-  .r-tag h4 {
-    margin: 0;
-    font-size: 0.74rem;
+    padding: 0 0 0.5rem;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--r-border);
+    border-radius: 0;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
+    text-align: left;
     text-transform: uppercase;
+    cursor: pointer;
   }
-  .r-tag .tally { margin-left: auto; font-size: 0.74rem; color: var(--faint); font-variant-numeric: tabular-nums; }
-  .r-tag .tally b { color: var(--ink); font-weight: 500; }
+  .r-tag-desc {
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--r-muted);
+  }
+  @media (max-width: 640px) { .r-tag-desc { display: none; } }
+  .r-tag .tally {
+    margin-left: auto;
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--r-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .r-tag .tally b { color: var(--ink); font-weight: 400; }
+
+  /* The tint covers the whole route, trigger and status list together, because
+     in the app it sits on the accordion item rather than on its header. */
+  .r-op { transition: background-color 180ms ease; }
+  .r-op + .r-op { border-top: 1px solid rgba(255, 255, 255, 0.09); }
+  .r-op:hover,
+  .r-op[data-open] { background: rgba(255, 255, 255, 0.045); }
+  .r-op:hover .method,
+  .r-op[data-open] .method { border-left-width: 6px; }
 
   .r-row {
     display: flex;
-    align-items: baseline;
-    gap: 0.9rem;
-    padding: 0.65rem 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    width: 100%;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 0.75rem;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
   }
-  .r-row .path { font-size: 0.8rem; }
-  .r-row .path em { font-style: normal; color: var(--faint); }
-  .r-row .tally {
-    margin-left: auto;
+  .r-row .method {
+    width: 4rem;
+    padding-left: 0.6rem;
     font-size: 0.72rem;
-    color: var(--faint);
+    line-height: 1.9;
+    transition: border-left-width 150ms ease;
+  }
+  .r-row .path { letter-spacing: -0.025em; }
+  .r-row .path em { font-style: normal; color: var(--r-muted); }
+  .r-row .marks { margin-left: auto; }
+  .r-row .tally {
+    width: 3rem;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--r-muted);
     font-variant-numeric: tabular-nums;
+  }
+  .r-tag:focus-visible,
+  .r-row:focus-visible {
+    outline: 1px solid var(--hair-strong);
+    outline-offset: -1px;
+  }
+
+  .r-caret {
+    flex-shrink: 0;
+    align-self: center;
+    width: 1rem;
+    height: 1rem;
+    color: var(--r-muted);
+    transition: transform 200ms ease;
+  }
+  .r-sec[data-open] > .r-tag-h .r-caret,
+  .r-op[data-open] > .r-row .r-caret { transform: rotate(180deg); }
+
+  /* Both accordions animate on height, measured by the script at the foot of
+     the page, which is what the app's own accordion does. The tidier CSS-only
+     trick (a 0fr/1fr grid row) cannot be nested: sizing the open tag section
+     puts its routes under a max-content constraint, which resolves their
+     collapsed 0fr rows to full height and reserves the space of every closed
+     route. Height carries no such surprise, and an open body settles back to
+     `auto` so a route opening inside it still reflows its section. */
+  .r-tag-body,
+  .r-op-body {
+    height: 0;
+    overflow: hidden;
+    transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .r-sec[data-open] > .r-tag-body,
+  .r-op[data-open] > .r-op-body { height: auto; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .r-tag-body,
+    .r-op-body,
+    .r-caret { transition: none; }
+  }
+
+  /* the status list inside an opened route: no rules between rows, and the
+     whole block hangs off the method rule's left edge */
+  .r-detail { padding: 0 0.75rem 1.25rem calc(1.35rem + 3px); }
+  .r-detail-sum {
+    margin: 0 0 0.75rem;
+    font-size: 0.75rem;
+    color: var(--r-muted);
+  }
+  .r-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.375rem 0;
+  }
+  .r-code {
+    flex-shrink: 0;
+    width: 2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .r-code[data-class="2"] { color: var(--ok); }
+  .r-code[data-class="3"] { color: var(--m-post); }
+  .r-code[data-class="4"] { color: var(--undoc); }
+  .r-code[data-class="5"] { color: var(--gap); }
+  .r-code.is-absent { color: var(--faint); }
+  .r-desc {
+    min-width: 0;
+    font-size: 0.75rem;
+    color: var(--r-muted);
+  }
+  .r-lead {
+    flex: 1 1 2rem;
+    min-width: 2rem;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.18);
+    transform: translateY(-0.3em);
+  }
+  .r-assert {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    color: var(--r-muted);
+  }
+  .stamp[data-s="quiet"] {
+    color: var(--faint);
+    border: 1px dashed var(--hair-strong);
+  }
+  @media (max-width: 640px) {
+    .r-detail { padding-left: 0.75rem; }
   }
 
   .method {
@@ -366,16 +529,20 @@
   }
   .mark[data-s="ok"] { background: var(--ok); border-color: var(--ok); }
   .mark[data-s="gap"] { border-color: var(--gap); border-style: dashed; }
+  /* a standard status missing from the spec: a hole, not a failing verdict */
+  .mark[data-s="absent"] { border-color: var(--hair-strong); border-style: dashed; }
   .mark[data-s="undoc"] {
     border-color: var(--undoc);
     background: repeating-linear-gradient(45deg, var(--undoc) 0 1px, transparent 1px 3px);
   }
 
+  /* Not in the app: the marketing page has to say what the marks mean. It
+     carries the gap-14 the app puts between its header and the first tag. */
   .r-legend {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem 1.5rem;
-    margin-bottom: 0.4rem;
+    margin-bottom: 3.5rem;
   }
   .r-legend span {
     display: inline-flex;
@@ -1461,6 +1628,7 @@
 
     <div class="preview panel rise" style="--st:3" aria-label="The SpecProof report, as rendered for the demo project bundled with the repo">
       <div class="report">
+        <!-- generated by scripts/generate-mockup.ts: do not edit by hand -->
         <div class="r-mast">
           <span class="r-name">specproof</span>
           <span class="r-time">2026-07-30 17:38 UTC</span>
@@ -1468,74 +1636,317 @@
 
         <div class="r-summary">
           <span class="cell"><span class="k">Operations</span><span class="v">7</span></span>
-          <span class="cell"><span class="k">Status pairs verified</span><span class="v">9/16</span></span>
-          <span class="cell"><span class="k">Gaps</span><span class="v">7</span></span>
-          <span class="cell"><span class="k">Untested routes</span><span class="v">2</span></span>
-          <span class="cell"><span class="k">Responses verified</span><span class="v">56<small>%</small></span></span>
+          <span class="cell"><span class="k">Status pairs verified</span><span class="v">11/24</span></span>
+          <span class="cell"><span class="k">Gaps</span><span class="v">13</span></span>
+          <span class="cell"><span class="k">Untested routes</span><span class="v">1</span></span>
+          <span class="cell"><span class="k">Responses verified</span><span class="v">46<small>%</small></span></span>
         </div>
 
         <div class="r-legend">
           <span><span class="mark" data-s="ok"></span> Verified</span>
           <span><span class="mark" data-s="gap"></span> No test</span>
+          <span><span class="mark" data-s="absent"></span> Missing from spec</span>
           <span><span class="mark" data-s="undoc"></span> Undocumented</span>
         </div>
 
-        <div class="r-tag">
-          <h4>Auth</h4>
-          <span class="tally"><b>2</b>/2 verified</span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="post">POST</span>
-          <span class="path">/auth/login</span>
-          <span class="tally">2/2</span>
-          <span class="marks"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span></span>
-        </div>
+        <section class="r-sec" data-open>
+          <h4 class="r-tag-h">
+            <button type="button" class="r-tag" aria-expanded="true" aria-controls="r-tag-auth">
+              <span class="r-tag-name">Auth</span>
+              <span class="r-tag-desc">Session and token management</span>
+              <span class="tally"><b>2</b>/3 verified</span>
+              <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+          </h4>
+          <div class="r-tag-body" id="r-tag-auth">
+            <div class="r-ops">
+              <div class="r-op">
+                <button type="button" class="r-row" aria-expanded="false" aria-controls="r-op-post-auth-login">
+                  <span class="method" data-m="post">POST</span>
+                  <span class="path">/auth/login</span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span><span class="mark" data-s="absent"></span></span>
+                  <span class="tally">2/3</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-post-auth-login">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">Exchange credentials for a session token</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">200</span>
+                      <span class="r-desc">Session token issued</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">401</span>
+                      <span class="r-desc">Invalid credentials</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <div class="r-tag">
-          <h4>Tasks</h4>
-          <span class="tally"><b>7</b>/12 verified</span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="get">GET</span>
-          <span class="path">/tasks</span>
-          <span class="tally">2/2</span>
-          <span class="marks"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span></span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="post">POST</span>
-          <span class="path">/tasks</span>
-          <span class="tally">2/3</span>
-          <span class="marks"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="undoc"></span></span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="get">GET</span>
-          <span class="path">/tasks/<em>{taskId}</em></span>
-          <span class="tally">2/2</span>
-          <span class="marks"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span></span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="patch">PATCH</span>
-          <span class="path">/tasks/<em>{taskId}</em></span>
-          <span class="tally">1/3</span>
-          <span class="marks"><span class="mark" data-s="ok"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="gap"></span></span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="delete">DELETE</span>
-          <span class="path">/tasks/<em>{taskId}</em></span>
-          <span class="tally">0/2</span>
-          <span class="marks"><span class="mark" data-s="gap"></span><span class="mark" data-s="gap"></span></span>
-        </div>
+        <section class="r-sec" data-open>
+          <h4 class="r-tag-h">
+            <button type="button" class="r-tag" aria-expanded="true" aria-controls="r-tag-tasks">
+              <span class="r-tag-name">Tasks</span>
+              <span class="r-tag-desc">Create and manage tasks</span>
+              <span class="tally"><b>9</b>/18 verified</span>
+              <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+          </h4>
+          <div class="r-tag-body" id="r-tag-tasks">
+            <div class="r-ops">
+              <div class="r-op">
+                <button type="button" class="r-row" aria-expanded="false" aria-controls="r-op-get-tasks">
+                  <span class="method" data-m="get">GET</span>
+                  <span class="path">/tasks</span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span><span class="mark" data-s="absent"></span></span>
+                  <span class="tally">2/3</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-get-tasks">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">List tasks for the authenticated user</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">200</span>
+                      <span class="r-desc">Task list</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">401</span>
+                      <span class="r-desc">Missing or invalid bearer token</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="r-op" data-open>
+                <button type="button" class="r-row" aria-expanded="true" aria-controls="r-op-post-tasks">
+                  <span class="method" data-m="post">POST</span>
+                  <span class="path">/tasks</span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="ok"></span><span class="mark" data-s="absent"></span></span>
+                  <span class="tally">3/5</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-post-tasks">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">Create a task</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">201</span>
+                      <span class="r-desc">Task created</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">400</span>
+                      <span class="r-desc">Malformed request body</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">401</span>
+                      <span class="r-desc">Missing or invalid bearer token</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">422</span>
+                      <span class="stamp" data-s="quiet" title="This response has no description in the OpenAPI spec">NO DESCRIPTION</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="r-op">
+                <button type="button" class="r-row" aria-expanded="false" aria-controls="r-op-get-tasks-taskid">
+                  <span class="method" data-m="get">GET</span>
+                  <span class="path">/tasks/<em>{taskId}</em></span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="ok"></span><span class="mark" data-s="ok"></span><span class="mark" data-s="absent"></span></span>
+                  <span class="tally">2/3</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-get-tasks-taskid">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">Fetch a single task</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">200</span>
+                      <span class="r-desc">The task</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">2 assertions</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">404</span>
+                      <span class="r-desc">No task with this id</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="r-op">
+                <button type="button" class="r-row" aria-expanded="false" aria-controls="r-op-patch-tasks-taskid">
+                  <span class="method" data-m="patch">PATCH</span>
+                  <span class="path">/tasks/<em>{taskId}</em></span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="ok"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="absent"></span></span>
+                  <span class="tally">1/4</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-patch-tasks-taskid">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">Update a task&#39;s fields</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">200</span>
+                      <span class="r-desc">Updated task</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">2 assertions</span>
+                      <span class="stamp" data-s="ok" title="In the app, this stamp opens the test that proves it">VERIFIED ⌕</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">404</span>
+                      <span class="r-desc">No task with this id</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">409</span>
+                      <span class="r-desc">Task was modified concurrently</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="r-op">
+                <button type="button" class="r-row" aria-expanded="false" aria-controls="r-op-delete-tasks-taskid">
+                  <span class="method" data-m="delete">DELETE</span>
+                  <span class="path">/tasks/<em>{taskId}</em></span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="gap"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="undoc"></span></span>
+                  <span class="tally">1/3</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-delete-tasks-taskid">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">Delete a task</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">204</span>
+                      <span class="r-desc">Task deleted</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">404</span>
+                      <span class="r-desc">No task with this id</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="r-assert">1 assertion</span>
+                      <span class="stamp" data-s="undoc" title="In the app, this stamp opens the test that proves it">UNDOCUMENTED ⌕</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <div class="r-tag">
-          <h4>Projects</h4>
-          <span class="tally"><b>0</b>/2 verified</span>
-        </div>
-        <div class="r-row">
-          <span class="method" data-m="get">GET</span>
-          <span class="path">/projects</span>
-          <span class="tally">0/2</span>
-          <span class="marks"><span class="mark" data-s="gap"></span><span class="mark" data-s="gap"></span></span>
-        </div>
+        <section class="r-sec" data-open>
+          <h4 class="r-tag-h">
+            <button type="button" class="r-tag" aria-expanded="true" aria-controls="r-tag-projects">
+              <span class="r-tag-name">Projects</span>
+              <span class="r-tag-desc">Group tasks into projects</span>
+              <span class="tally"><b>0</b>/3 verified</span>
+              <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+          </h4>
+          <div class="r-tag-body" id="r-tag-projects">
+            <div class="r-ops">
+              <div class="r-op">
+                <button type="button" class="r-row" aria-expanded="false" aria-controls="r-op-get-projects">
+                  <span class="method" data-m="get">GET</span>
+                  <span class="path">/projects</span>
+                  <span class="marks" aria-hidden="true"><span class="mark" data-s="gap"></span><span class="mark" data-s="gap"></span><span class="mark" data-s="absent"></span></span>
+                  <span class="tally">0/3</span>
+                  <svg class="r-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                <div class="r-op-body" id="r-op-get-projects">
+                  <div class="r-detail">
+                    <p class="r-detail-sum">List projects</p>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="2">200</span>
+                      <span class="r-desc">Project list</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code" data-class="4">401</span>
+                      <span class="r-desc">Missing or invalid bearer token</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                    <div class="r-stat">
+                      <span class="r-code is-absent">500</span>
+                      <span class="stamp" data-s="quiet" title="The OpenAPI spec documents no 500 response for this operation">MISSING FROM SPEC</span>
+                      <span class="r-lead" aria-hidden="true"></span>
+                      <span class="stamp" data-s="gap">NO TEST</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- end generated mockup -->
       </div>
     </div>
   </div>
@@ -1919,8 +2330,8 @@ jobs:
   <div class="wrap">
     <div class="foot-links">
       <span>MIT licensed</span>
-      <span>v0.7.1</span>
-      <span class="built">Built by <a href="https://x.com/_DurableQuality" target="_blank" rel="noopener noreferrer">Durable Quality</a></span>
+      <span id="r-version">v0.9.2</span>
+      <span class="built">Built by <a href="https://x.com/DurableQA" target="_blank" rel="noopener noreferrer">Durable Quality</a></span>
     </div>
   </div>
 </footer>
@@ -2314,6 +2725,52 @@ jobs:
         stat.hidden = false;
       })
       .catch(function () { /* leave the stat hidden */ });
+  })();
+
+  /* ================================================ hero report: the mockup */
+  /* The mockup behaves like the app's report: tags and routes open and close,
+     and an opened route lists its statuses. The markup between the markers in
+     the body is written by scripts/generate-mockup.ts from the same proof the
+     app renders, so the two never drift.
+
+     Heights are animated rather than pinned: each body is measured on the way
+     open and settles back to `auto`, so the panel is only ever as tall as what
+     is open and a route opening inside a section reflows it. */
+  (function () {
+    var report = document.querySelector('.report');
+    if (!report) return;
+
+    var SETTLE = 260; /* just past the CSS transition */
+
+    Array.prototype.forEach.call(report.querySelectorAll('.r-tag, .r-row'), function (trigger) {
+      var section = trigger.closest('.r-sec, .r-op');
+      var body = document.getElementById(trigger.getAttribute('aria-controls'));
+      if (!section || !body) return;
+      var settle;
+
+      trigger.addEventListener('click', function () {
+        var open = !section.hasAttribute('data-open');
+        var from = body.offsetHeight;
+
+        /* The attribute lands before the inline height so the resting state is
+           already right when that height is cleared: auto open, 0 closed. */
+        if (open) {
+          section.setAttribute('data-open', '');
+        } else {
+          section.removeAttribute('data-open');
+        }
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+        body.style.height = from + 'px';
+        var to = open ? body.scrollHeight : 0;
+        window.requestAnimationFrame(function () {
+          body.style.height = to + 'px';
+        });
+
+        clearTimeout(settle);
+        settle = setTimeout(function () { body.style.height = ''; }, SETTLE);
+      });
+    });
   })();
 </script>
 </body>

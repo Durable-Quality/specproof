@@ -50,6 +50,27 @@ automatically by `dev`/`build`; see "Barebones specs" in the top-level
 bunx vitest run tests/unit/generate-proof.test.ts   # YAML/JSON equivalence, --check drift, empty/malformed specs, discovery ties
 ```
 
+## generate-mockup.ts
+
+Rewrites the report mockup in the marketing site's hero from the checked-in
+proof, so `marketing/index.html` shows the same audit the app renders instead
+of a hand-written impression of it.
+
+```bash
+bun run generate:proof && bun run generate:mockup
+```
+
+Only the markup between the two marker comments inside `<div class="report">`
+is replaced; the page around it, all of its CSS, and the small accordion
+script at the foot of the file are hand-maintained. The mockup mirrors every
+tag, route and status row, including the marks, tallies and stamps, and leaves
+out one thing on purpose: the stamp that opens the test-code panel, which
+needs a screenful the hero does not have.
+
+It also rewrites the footer's `<span id="r-version">` from `package.json`'s
+`version`, so a version bump can't leave that tag pointing at a stale release
+the way it once did.
+
 ## manual-dev-watch.ts
 
 Manual harness for the "develop-alongside" loop: `specproof dev` on a repo

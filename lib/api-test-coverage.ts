@@ -230,9 +230,9 @@ export interface OperationCoverage {
   /** Number of it() blocks in this operation's describe segments */
   testCount: number;
   statuses: StatusCoverage[];
-  /** Documented statuses with at least one assertion */
+  /** Statuses with at least one assertion */
   coveredCount: number;
-  /** Documented statuses with no assertions */
+  /** Statuses with no assertions */
   gapCount: number;
 }
 
@@ -255,7 +255,7 @@ export interface CoverageReport {
   hasSpec: boolean;
   tags: TagCoverage[];
   operationCount: number;
-  /** documented (path, method, status) pairs with assertions */
+  /** (path, method, status) rows with assertions */
   coveredCount: number;
   totalCount: number;
   /** operations with no test evidence at all */
@@ -494,8 +494,9 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
         }
       }
       // Standard statuses this operation's shape implies that neither source
-      // accounts for. They are a hole in the definition, not a testing gap, so
-      // they count toward neither coverage nor gapCount below.
+      // accounts for. The description slot says they are a hole in the
+      // definition; the verdict still asks the same question of them as of
+      // every other row, so they count below like any other.
       for (const code of expectedStatuses(specPathKey, operation)) {
         if (!statuses.some((s) => s.code === code)) {
           statuses.push({
@@ -510,8 +511,13 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
       }
       statuses.sort((a, b) => a.code.localeCompare(b.code));
 
-      const coveredCount = statuses.filter((s) => s.documented && s.assertions > 0).length;
-      const gapCount = statuses.filter((s) => s.documented && s.assertions === 0).length;
+      // Every row the report renders is counted, and counted once: covered when
+      // a test asserts it, a gap when nothing does. That includes the rows the
+      // spec never documents — a synthesized 500 nobody tests is still an
+      // unproven response, and leaving it out of the denominator made the
+      // operation's tally disagree with the rows printed underneath it.
+      const coveredCount = statuses.filter((s) => s.assertions > 0).length;
+      const gapCount = statuses.filter((s) => s.assertions === 0).length;
 
       const op: OperationCoverage = {
         method,
