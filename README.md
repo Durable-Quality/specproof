@@ -9,13 +9,14 @@ Audit your API test coverage against your OpenAPI spec. SpecProof cross-examines
 ## Quick start
 
 ```bash
-npm install -D specproof
-npx specproof dev   # audit the current repo → http://localhost:3001
+bun add -d specproof
+bunx specproof dev          # audit the current repo → http://localhost:3001
+bun add -d specproof@latest # update to the latest version
 ```
 
-Also works with `bun`, `pnpm` and `yarn`.
+Also works with `npm`, `pnpm` and `yarn`.
 
-Starting from scratch works too: `specproof dev` opens on an empty or half-written spec and rebuilds the report as you add operations, so you can write the spec and watch coverage appear beside it.
+Starting from scratch works too! SpecProof opens on an empty or half-written spec and rebuilds the report as you add operations, so you can write the spec and watch coverage appear beside it.
 
 ## CLI
 
@@ -25,7 +26,14 @@ specproof dev                                     # generate + serve the report,
 specproof build && specproof start                # production build + serve
 ```
 
-Run `specproof --help` for the full option list (`--repo`, `--spec`, `--out`, `--port`, `--allow-empty`, `--no-watch`).
+Run `specproof --help` for the full option list:
+
+- `--repo`
+- `--spec`
+- `--out`
+- `--port`
+- `--allow-empty`
+- `--no-watch`
 
 ## License
 

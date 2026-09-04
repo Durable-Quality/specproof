@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-09-04
+
+### Changed
+- Split `example/tests/tasks.test.ts` into one `*.integration.test.ts` file per operation, matching the existing per-operation split for auth, and renamed `auth.test.ts` to `auth-login.integration.test.ts`.
+- README's quick start now leads with `bun add -d specproof` / `bunx specproof dev` and lists `specproof --help`'s flags instead of prose.
+- The marketing hero's report mockup is now generated from `app/proof.generated.json` by `bun run generate:mockup` instead of being hand-written, and gained the app's own tag and route accordions: every operation opens onto its status list, minus the stamp-to-side-panel step.
+
+### Fixed
+- An operation's tally now counts every status row it prints, including synthesized and undocumented ones, so the fraction matches the marks beside it (the bundled example's total goes from 10/17 to 11/24).
+- The report's assertion count now shows for any verdict with assertions, not just spec-documented ones.
+- The "Built by Durable Quality" link now points at the studio's current handle (`x.com/DurableQA`).
+
 ## [0.9.1] - 2026-09-04
 
 ### Changed

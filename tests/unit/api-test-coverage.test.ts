@@ -601,15 +601,16 @@ describe('buildCoverageReport', () => {
     const report = buildCoverageReport(fixtureRepo());
 
     expect(report.operationCount).toBe(4);
-    expect(report.coveredCount).toBe(3);
-    expect(report.totalCount).toBe(5);
+    expect(report.coveredCount).toBe(4);
+    expect(report.totalCount).toBe(11);
     expect(report.untestedOperations).toBe(1);
 
     const widgets = report.tags.find((t) => t.tag === 'Widgets')!;
     const get = widgets.operations.find((op) => op.method === 'get')!;
     expect(get.summary).toBe('List widgets');
+    // 200 asserted; 401 documented and untested; 500 synthesized and untested.
     expect(get.coveredCount).toBe(1);
-    expect(get.gapCount).toBe(1);
+    expect(get.gapCount).toBe(2);
     expect(get.testFile).toBe('tests/widgets.test.ts');
   });
 
@@ -624,9 +625,11 @@ describe('buildCoverageReport', () => {
     expect(post.statuses[1].documented).toBe(false);
     expect(post.statuses[1].assertions).toBe(1);
     expect(post.statuses[1].expected).toBeUndefined();
-    // Undocumented statuses count toward neither coverage nor gaps.
-    expect(post.coveredCount).toBe(1);
-    expect(post.gapCount).toBe(0);
+    // Every row counts once, whatever produced it: 201 and the undocumented
+    // 422 are both asserted, the synthesized 500 is not.
+    expect(post.coveredCount).toBe(2);
+    expect(post.gapCount).toBe(1);
+    expect(post.coveredCount + post.gapCount).toBe(post.statuses.length);
     expect(post.summary).toBe('');
   });
 
@@ -646,7 +649,7 @@ describe('buildCoverageReport', () => {
     const del = report.tags[1].operations[0];
     expect(del.testFile).toBeNull();
     expect(del.testCount).toBe(0);
-    expect(del.gapCount).toBe(1);
+    expect(del.gapCount).toBe(3);
   });
 
   it('reports identically from a YAML spec and its JSON conversion', () => {
@@ -687,12 +690,12 @@ describe('buildCoverageReport', () => {
       expect(status.snippets).toEqual([]);
     }
 
-    // A hole in the spec is not a testing gap: neither count moves, so the
-    // verified percentage still measures the documented surface.
+    // A hole in the spec is still a response nothing proves, so it lands in
+    // the gap count with the documented-but-untested 204 beside it.
     expect(del.coveredCount).toBe(0);
-    expect(del.gapCount).toBe(1);
-    expect(report.totalCount).toBe(5);
-    expect(report.coveredCount).toBe(3);
+    expect(del.gapCount).toBe(3);
+    expect(report.totalCount).toBe(11);
+    expect(report.coveredCount).toBe(4);
   });
 
   it('never synthesizes a status the spec documents or the tests assert', () => {
