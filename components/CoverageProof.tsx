@@ -32,6 +32,16 @@ function verdictOf(status: StatusCoverage): 'ok' | 'gap' | 'undoc' {
   return status.assertions > 0 ? 'ok' : 'gap';
 }
 
+/**
+ * What to caption a status row with. The spec's own description, verbatim,
+ * whenever there is one — it is never substituted or annotated. An
+ * undocumented status has none by definition, so it borrows the title of the
+ * test that asserts it rather than reading as a blank row.
+ */
+function captionOf(status: StatusCoverage): string {
+  return status.description || status.snippets[0]?.title || '';
+}
+
 /** Render {slug} path segments in a muted tone so parameters read apart */
 function PathInk({ specPath }: { specPath: string }) {
   const parts = specPath.split(/(\{[^}]+\})/g).filter(Boolean);
@@ -155,7 +165,7 @@ function StatusList({
             >
               {status.code}
             </span>
-            <span className="text-xs text-muted-foreground">{status.description}</span>
+            <span className="text-xs text-muted-foreground">{captionOf(status)}</span>
             <span className="sp-leader" aria-hidden />
             {verdict === 'ok' && (
               <span className="shrink-0 text-[0.68rem] text-muted-foreground">

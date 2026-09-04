@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.1] - 2026-09-04
 
 ### Fixed
-- A status code asserted in tests but absent from the OpenAPI spec no longer replaces the route's description with "asserted in tests, but absent from the OpenAPI spec". The spec's own description is always shown as written, and the UNDOCUMENTED stamp remains the marker for that state.
+- A status code asserted in tests but absent from the OpenAPI spec no longer replaces the route's description with "asserted in tests, but absent from the OpenAPI spec". A documented status always shows the spec's own description as written, and an undocumented one, having no description in the spec, is captioned with the title of the test that asserts it. The UNDOCUMENTED stamp remains the marker for that state.
 
 ## [0.8.0] - 2026-08-03
 
