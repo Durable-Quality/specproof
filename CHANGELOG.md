@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-09-04
+
+### Fixed
+- `it()`/`test()` block extraction now closes on `})` with or without a trailing semicolon, instead of requiring `});`. Audited repos that don't use semicolons were showing the rest of the `describe` block as the proof snippet instead of just the matching test.
+
 ## [0.9.2] - 2026-09-04
 
 ### Changed

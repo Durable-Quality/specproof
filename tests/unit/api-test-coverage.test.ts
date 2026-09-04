@@ -148,6 +148,28 @@ describe('extractItBlocks', () => {
     expect(blocks).toHaveLength(1);
     expect(blocks[0].statuses).toEqual(['200']);
   });
+
+  it('closes each block at its own "})" even without a semicolon (no-semi style)', () => {
+    const noSemi = [
+      'describe("POST /widgets", () => {',
+      '  it("creates a widget", async () => {',
+      '    const res = await api.post("/widgets")',
+      '    expect(res.status).toBe(201)',
+      '  })',
+      '',
+      '  it("rejects a bad payload", async () => {',
+      '    const res = await api.post("/widgets", {})',
+      '    expect(res.status).toBe(400)',
+      '  })',
+      '})'
+    ].join('\n');
+    const blocks = extractItBlocks(noSemi, 0, noSemi);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].statuses).toEqual(['201']);
+    expect(blocks[0].source.endsWith('\n})')).toBe(true);
+    expect(blocks[0].source).not.toContain('rejects a bad payload');
+    expect(blocks[1].statuses).toEqual(['400']);
+  });
 });
 
 describe('parseTestFile', () => {
