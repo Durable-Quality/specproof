@@ -163,18 +163,18 @@ function EvidencePanel({
               </SheetDescription>
             </SheetHeader>
 
+            {evidence.operation.testFile && (
+              <p className="mt-4 flex flex-wrap items-baseline gap-x-1.5 border-t border-dashed pt-3 text-xs font-bold text-muted-foreground">
+                <span className="tracking-[0.14em]">SOURCE ·</span>
+                <span className="font-mono tracking-normal">{evidence.operation.testFile}</span>
+              </p>
+            )}
+
             <div className="mt-6 flex flex-col gap-8">
               {evidence.status.snippets.map((snippet) => (
                 <SnippetBlock key={snippet.startLine} snippet={snippet} code={evidence.status.code} />
               ))}
             </div>
-
-            {evidence.operation.testFile && (
-              <p className="mt-8 flex flex-wrap items-baseline gap-x-1.5 border-t border-dashed pt-3 text-[0.65rem] text-muted-foreground">
-                <span className="tracking-[0.14em]">SOURCE ·</span>
-                <span className="font-mono tracking-normal">{evidence.operation.testFile}</span>
-              </p>
-            )}
           </>
         )}
       </SheetContent>
