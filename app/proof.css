@@ -224,6 +224,42 @@ button.sp-stamp:focus-visible {
   color: var(--sp-ok);
 }
 
+/* ---- suggested test ------------------------------------------------------------ */
+/* The suggestion has no line numbers to cite: it isn't in a file yet. */
+.sp-codeblock[data-plain] .sp-codeline {
+  grid-template-columns: 1fr;
+  padding-left: 0.9rem;
+}
+/* The assertion the suggestion exists for, marked in the gap tone rather than
+   the verified one: it is the line that would close the gap, not one that has. */
+.sp-codeline[data-pending] {
+  background: color-mix(in srgb, var(--sp-gap) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--sp-gap);
+}
+
+.sp-action {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  padding: 0.18rem 0.6rem;
+  border: 1px solid var(--sp-hair-strong);
+  color: var(--sp-faint);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.sp-action:hover:not(:disabled) {
+  color: var(--sp-ink);
+  border-color: currentColor;
+}
+.sp-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.sp-action:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
 /* ---- row hover bleed ----------------------------------------------------------- */
 .sp-oprow {
   transition: background-color 180ms ease;

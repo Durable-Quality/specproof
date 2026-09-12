@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-09-12
+
+### Added
+- `NO TEST` is now a button: it opens the side panel on a suggested test for that response, with an Apply button that writes it.
+- Apply writes the test into the audited repo, creating the file or inserting into the `describe` block that already covers the operation.
+- Apply also documents the response in the OpenAPI spec when the spec doesn't list it, preserving YAML comments and JSON indentation.
+- Apply refreshes `app/proof.generated.json` and the audit view before responding, so the applied row reads as covered with no restart.
+- The proof records the audited repo's test framework (`vitest` / `jest` / `bun:test`, detected from imports, config, dependencies, then the `test` script; Jest recommended when nothing readable is found), plus each operation's `hasRequestBody` and `suggestedTestFile`.
+
 ## [0.9.4] - 2026-09-04
 
 ### Changed
