@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   Accordion,
@@ -15,11 +16,13 @@ import {
   SheetHeader,
   SheetTitle
 } from '@/components/ui/sheet';
+import { buildSuggestedTest } from '@/lib/test-suggestion';
 import type {
   CoverageReport,
   OperationCoverage,
   StatusCoverage,
   TagCoverage,
+  TestFrameworkInfo,
   TestSnippet
 } from '@/lib/api-test-coverage';
 
@@ -127,11 +130,169 @@ function SnippetBlock({ snippet, code }: { snippet: TestSnippet; code: string })
   );
 }
 
+/**
+ * The suggested test for a response nothing asserts. Built in the browser from
+ * the checked-in proof by the same function the apply route writes with, so
+ * what is shown is what lands on disk — no round trip needed to read it, and
+ * nothing to diff against once it is applied.
+ */
+function SuggestionBody({
+  operation,
+  status,
+  framework
+}: {
+  operation: OperationCoverage;
+  status: StatusCoverage;
+  framework: TestFrameworkInfo;
+}) {
+  const mode = operation.testFile ? 'append' : 'create';
+  const suggestion = useMemo(
+    () =>
+      buildSuggestedTest({
+        method: operation.method,
+        specPath: operation.specPath,
+        status: status.code,
+        hasRequestBody: operation.hasRequestBody,
+        framework: framework.id,
+        mode
+      }),
+    [operation, status.code, framework.id, mode]
+  );
+
+  // Applying writes into the audited repo, which only the machine running the
+  // dev server can do. Asked once per opened panel rather than assumed, so a
+  // build served from anywhere else offers the code without a button that
+  // cannot work.
+  const [target, setTarget] = useState<{ writable: boolean; reason: string | null } | null>(null);
+  const [applied, setApplied] = useState<{ ok: boolean; message: string } | null>(null);
+  const [applying, setApplying] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/suggested-test')
+      .then((res) => res.json())
+      .then((data) => !cancelled && setTarget(data))
+      .catch(
+        () =>
+          !cancelled &&
+          setTarget({ writable: false, reason: 'the SpecProof server is not reachable' })
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function apply() {
+    setApplying(true);
+    setApplied(null);
+    try {
+      const res = await fetch('/api/suggested-test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          method: operation.method,
+          specPath: operation.specPath,
+          status: status.code
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setApplied({ ok: false, message: data.error ?? `apply failed (${res.status})` });
+      } else {
+        const wrote = [
+          `${data.created ? 'Wrote' : 'Updated'} ${data.file}`,
+          data.specFile ? `documented ${status.code} in ${data.specFile}` : null
+        ]
+          .filter(Boolean)
+          .join(', ');
+        setApplied({
+          ok: true,
+          message: data.refreshError
+            ? `${wrote}. The audit view could not be refreshed: ${data.refreshError}`
+            : `${wrote}. Run it to prove the response.`
+        });
+        // The route has already rewritten the proof this page renders; this
+        // pulls the new one in without waiting on a file-watch event.
+        if (!data.refreshError) router.refresh();
+      }
+    } catch (error) {
+      setApplied({ ok: false, message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <>
+      <p className="mt-4 flex flex-wrap items-baseline gap-x-1.5 border-t border-dashed pt-3 text-xs font-bold text-muted-foreground">
+        <span className="tracking-[0.14em]">{mode === 'create' ? 'NEW FILE ·' : 'APPEND TO ·'}</span>
+        <span className="font-mono tracking-normal">{operation.suggestedTestFile}</span>
+      </p>
+      <p className="mt-1.5 text-[0.65rem] text-muted-foreground">
+        {framework.detected
+          ? `Written for ${framework.id}: ${framework.evidence}.`
+          : `No framework SpecProof can read assertions from: ${framework.evidence}. Suggesting ${framework.id}.`}
+        {!status.documented &&
+          ` Applying also documents the ${status.code} response in the OpenAPI spec, which does not list it.`}
+      </p>
+
+      <div className="mt-6 flex flex-col gap-3">
+        <div className="flex items-baseline gap-3">
+          <span className="text-xs font-medium">{suggestion.title}</span>
+          <span className="sp-leader" aria-hidden />
+          <button
+            type="button"
+            className="sp-action shrink-0"
+            onClick={apply}
+            disabled={applying || target?.writable === false}
+            title={
+              target?.reason ??
+              (status.documented
+                ? 'Write this test into the audited repo'
+                : 'Write this test and document the response in the spec')
+            }
+          >
+            {applying ? 'APPLYING…' : 'APPLY'}
+          </button>
+        </div>
+        <pre className="sp-codeblock py-2" data-plain>
+          {suggestion.preview.split('\n').map((line, i) => (
+            <div
+              key={i}
+              className="sp-codeline"
+              data-pending={/\.status\)\.toBe\(/.test(line) ? '' : undefined}
+            >
+              <code>{line || ' '}</code>
+            </div>
+          ))}
+        </pre>
+        {applied && (
+          <p
+            className="text-xs"
+            data-applied={applied.ok ? 'ok' : 'error'}
+            style={{ color: applied.ok ? 'var(--sp-ok)' : 'var(--sp-gap)' }}
+          >
+            {applied.message}
+          </p>
+        )}
+        {!applied && target && !target.writable && (
+          <p className="text-xs text-muted-foreground">
+            Applying is unavailable here: {target.reason}.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
 function EvidencePanel({
   evidence,
+  framework,
   onClose
 }: {
   evidence: Evidence | null;
+  framework: TestFrameworkInfo;
   onClose: () => void;
 }) {
   return (
@@ -163,18 +324,33 @@ function EvidencePanel({
               </SheetDescription>
             </SheetHeader>
 
-            {evidence.operation.testFile && (
-              <p className="mt-4 flex flex-wrap items-baseline gap-x-1.5 border-t border-dashed pt-3 text-xs font-bold text-muted-foreground">
-                <span className="tracking-[0.14em]">SOURCE ·</span>
-                <span className="font-mono tracking-normal">{evidence.operation.testFile}</span>
-              </p>
-            )}
+            {verdictOf(evidence.status) === 'gap' ? (
+              <SuggestionBody
+                key={`${evidence.operation.method} ${evidence.operation.specPath} ${evidence.status.code}`}
+                operation={evidence.operation}
+                status={evidence.status}
+                framework={framework}
+              />
+            ) : (
+              <>
+                {evidence.operation.testFile && (
+                  <p className="mt-4 flex flex-wrap items-baseline gap-x-1.5 border-t border-dashed pt-3 text-xs font-bold text-muted-foreground">
+                    <span className="tracking-[0.14em]">SOURCE ·</span>
+                    <span className="font-mono tracking-normal">{evidence.operation.testFile}</span>
+                  </p>
+                )}
 
-            <div className="mt-6 flex flex-col gap-8">
-              {evidence.status.snippets.map((snippet) => (
-                <SnippetBlock key={snippet.startLine} snippet={snippet} code={evidence.status.code} />
-              ))}
-            </div>
+                <div className="mt-6 flex flex-col gap-8">
+                  {evidence.status.snippets.map((snippet) => (
+                    <SnippetBlock
+                      key={snippet.startLine}
+                      snippet={snippet}
+                      code={evidence.status.code}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </SheetContent>
@@ -224,9 +400,19 @@ function StatusList({
               >
                 {verdict === 'ok' ? 'VERIFIED' : 'UNDOCUMENTED'} ⌕
               </button>
+            ) : verdict === 'gap' ? (
+              <button
+                type="button"
+                className="sp-stamp shrink-0"
+                data-verdict="gap"
+                title="Show a suggested test for this response"
+                onClick={() => onShowEvidence({ operation, status })}
+              >
+                NO TEST ✎
+              </button>
             ) : (
               <span className="sp-stamp shrink-0" data-verdict={verdict}>
-                {verdict === 'ok' ? 'VERIFIED' : verdict === 'gap' ? 'NO TEST' : 'UNDOCUMENTED'}
+                {verdict === 'ok' ? 'VERIFIED' : 'UNDOCUMENTED'}
               </span>
             )}
           </div>
@@ -457,7 +643,11 @@ export function CoverageProof({
         </footer>
       </div>
 
-      <EvidencePanel evidence={evidence} onClose={() => setEvidence(null)} />
+      <EvidencePanel
+        evidence={evidence}
+        framework={report.testFramework}
+        onClose={() => setEvidence(null)}
+      />
     </div>
   );
 }

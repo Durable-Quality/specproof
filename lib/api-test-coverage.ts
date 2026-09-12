@@ -23,6 +23,7 @@ import path from 'path';
 
 import { parse as parseYaml } from 'yaml';
 
+
 /**
  * The repo the proof audits. Configurable via the SPECPROOF_REPO env var;
  * defaults to the directory SpecProof is run from, so installing it into a
@@ -225,8 +226,17 @@ export interface OperationCoverage {
   method: string;
   specPath: string;
   summary: string;
+  /** Whether the spec declares a request body — what a suggested test sends */
+  hasRequestBody: boolean;
   /** Path of the operation's test file relative to the target repo root, if one exists */
   testFile: string | null;
+  /**
+   * Where a suggested test for this operation would be written: the file that
+   * already describes it, or a new one in the repo's test directory. Resolved
+   * here because it depends on the repo's layout, which the rendered proof
+   * (and the panel reading it) has no other view of.
+   */
+  suggestedTestFile: string;
   /** Number of it() blocks in this operation's describe segments */
   testCount: number;
   statuses: StatusCoverage[];
@@ -253,6 +263,8 @@ export interface CoverageReport {
    *  Deliberately a boolean rather than the spec's path: the proof must stay
    *  byte-identical whether the spec was authored as JSON or YAML. */
   hasSpec: boolean;
+  /** The framework a suggested test is written for, and how that was decided */
+  testFramework: TestFrameworkInfo;
   tags: TagCoverage[];
   operationCount: number;
   /** (path, method, status) rows with assertions */
@@ -427,15 +439,23 @@ export function parseTestFile(source: string, testFile: string): Map<string, Ope
   return byOperation;
 }
 
+/** Every test file in the target repo, sorted — the analyzer's second source. */
+export function findTestFiles(repoRoot: string): string[] {
+  if (!fs.existsSync(repoRoot)) return [];
+  return walk(repoRoot, (name) => TEST_FILE_RE.test(name)).sort();
+}
+
 /**
  * Scan the whole target repo for test files and index their evidence by
  * operation. When several files describe the same operation, the one with the
  * most it() blocks wins (ties broken alphabetically) — snippets must all cite
  * a single file.
  */
-export function collectTestEvidence(repoRoot: string): Map<string, OperationEvidence> {
+export function collectTestEvidence(
+  repoRoot: string,
+  testFiles: string[] = findTestFiles(repoRoot)
+): Map<string, OperationEvidence> {
   const best = new Map<string, OperationEvidence>();
-  const testFiles = walk(repoRoot, (name) => TEST_FILE_RE.test(name)).sort();
 
   for (const testFileAbs of testFiles) {
     const testFile = path.relative(repoRoot, testFileAbs).split(path.sep).join('/');
@@ -448,6 +468,233 @@ export function collectTestEvidence(repoRoot: string): Map<string, OperationEvid
     }
   }
   return best;
+}
+
+// ============================================================================
+// Test framework
+// ============================================================================
+//
+// Which framework the audited repo writes its tests in — the question
+// SpecProof has to answer before it can suggest a test for an uncovered
+// response.
+//
+// Only three answers are possible, and the reason is this file: coverage is
+// read from `expect(res.status).toBe(NNN)` assertions, so a suggestion the
+// analyzer could not read back is not a suggestion at all. Vitest, Jest, and
+// `bun:test` share that assertion style. A repo on Mocha/Chai or `node:test`
+// is detected well enough to say so, but the suggestion is written for Jest —
+// named as a recommendation rather than passed off as the repo's convention.
+//
+// It lives here, rather than in a module of its own beside test-suggestion.ts,
+// because this file is compiled twice: by Next's bundler for the app, and by
+// tsconfig.cli.json for the published CLI. Those two disagree about whether a
+// relative ESM import may omit its `.js` extension (Node requires it, Turbopack
+// resolves no such file), so the analyzer carries no relative value imports at
+// all. Type-only imports are fine — both toolchains erase them.
+
+/** The frameworks a suggested test can be written for. */
+export type TestFrameworkId = 'vitest' | 'jest' | 'bun';
+
+export interface TestFrameworkInfo {
+  /** The framework a suggested test is written for. */
+  id: TestFrameworkId;
+  /**
+   * Whether `id` is what the repo already uses. False means nothing usable was
+   * found and this is SpecProof's recommendation — the state a repo with no
+   * tests at all is in, and the one a Mocha repo lands in too.
+   */
+  detected: boolean;
+  /** Why: "imported by tests/tasks.test.ts", "devDependencies.vitest", … */
+  evidence: string;
+  /** Extension new test files get, from what the repo already writes. */
+  extension: '.test.ts' | '.test.js';
+  /** Repo-relative directory new test files go in (posix separators). */
+  testDir: string;
+}
+
+/** Frameworks worth naming in the evidence line, that we cannot write for. */
+const UNREADABLE_FRAMEWORKS: Array<[string, RegExp]> = [
+  ['Mocha', /^mocha$/],
+  ['AVA', /^ava$/],
+  ['Jasmine', /^jasmine(-core)?$/],
+  ['node:test', /^node:test$/],
+  ['tap', /^(tap|node-tap)$/],
+];
+
+const IMPORT_SOURCE_RE = /(?:from|require\()\s*["'`]([^"'`]+)["'`]/g;
+
+const CONFIG_FILE_RE: Array<[TestFrameworkId, RegExp]> = [
+  ['vitest', /^vitest\.(?:config|workspace)\.[cm]?[jt]s$/],
+  ['jest', /^jest\.config\.(?:[cm]?[jt]s|json)$/],
+];
+
+const DEPENDENCY_ID: Array<[TestFrameworkId, RegExp]> = [
+  ['vitest', /^vitest$/],
+  ['jest', /^(?:jest|@jest\/globals)$/],
+  ['bun', /^bun-types$/],
+];
+
+/** What a test file's import of a framework module says it is written in. */
+function frameworkOfModule(specifier: string): TestFrameworkId | null {
+  if (specifier === 'vitest') return 'vitest';
+  if (specifier === 'bun:test') return 'bun';
+  if (specifier === '@jest/globals') return 'jest';
+  return null;
+}
+
+function readPackageJson(repoRoot: string): Record<string, unknown> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function relative(repoRoot: string, target: string): string {
+  return path.relative(repoRoot, target).split(path.sep).join('/');
+}
+
+/**
+ * The directory new test files belong in: whichever one already holds the most
+ * test files (ties broken shallowest, then alphabetically), falling back to the
+ * first conventional directory that exists, and finally to `tests`. Following
+ * the repo rather than a house style is the point — a suggestion that lands
+ * somewhere the test runner doesn't look is worse than none.
+ */
+function resolveTestDir(repoRoot: string, testFiles: string[]): string {
+  const counts = new Map<string, number>();
+  for (const file of testFiles) {
+    const dir = relative(repoRoot, path.dirname(file));
+    counts.set(dir, (counts.get(dir) ?? 0) + 1);
+  }
+  const busiest = [...counts.entries()].sort(
+    ([aDir, aCount], [bDir, bCount]) =>
+      bCount - aCount ||
+      aDir.split('/').length - bDir.split('/').length ||
+      aDir.localeCompare(bDir)
+  )[0];
+  if (busiest) return busiest[0];
+
+  for (const candidate of ['tests', 'test', '__tests__', 'src/__tests__']) {
+    if (fs.existsSync(path.join(repoRoot, candidate))) return candidate;
+  }
+  return 'tests';
+}
+
+/**
+ * Whether new tests should be TypeScript. Keyed on what the repo already
+ * writes, then on whether it is a TypeScript project at all.
+ */
+function resolveExtension(repoRoot: string, testFiles: string[]): '.test.ts' | '.test.js' {
+  if (testFiles.some((file) => /\.tsx?$/.test(file))) return '.test.ts';
+  if (testFiles.some((file) => /\.jsx?$/.test(file))) return '.test.js';
+  return fs.existsSync(path.join(repoRoot, 'tsconfig.json')) ? '.test.ts' : '.test.js';
+}
+
+/**
+ * Identify the framework, best evidence first:
+ *
+ *   1. What the existing test files import — what the repo actually writes,
+ *      which outranks anything declared about it.
+ *   2. A framework config file at the repo root.
+ *   3. A dependency.
+ *   4. The `test` script.
+ *
+ * Nothing found (or only a framework whose assertions SpecProof cannot read)
+ * falls through to Jest, flagged `detected: false` so the UI can say it is a
+ * recommendation.
+ *
+ * `testFiles` are absolute paths, passed in by the caller because both callers
+ * (the analyzer, the apply route) have already walked the tree for them.
+ */
+/** A file name for a new test file: `tasks-task-id-delete.test.ts` */
+export function suggestedTestFileName(
+  method: string,
+  specPath: string,
+  extension: string
+): string {
+  const slug = specPath
+    .replace(/[{}[\]:]/g, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+  return `${slug || 'root'}-${method.toLowerCase()}${extension}`;
+}
+
+export function detectTestFramework(repoRoot: string, testFiles: string[]): TestFrameworkInfo {
+  const shape = {
+    extension: resolveExtension(repoRoot, testFiles),
+    testDir: resolveTestDir(repoRoot, testFiles),
+  };
+  const found = (id: TestFrameworkId, evidence: string): TestFrameworkInfo => ({
+    id,
+    detected: true,
+    evidence,
+    ...shape,
+  });
+
+  // 1. imports in the repo's own test files
+  let unreadable: string | null = null;
+  for (const file of [...testFiles].sort()) {
+    let source: string;
+    try {
+      source = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    for (const match of source.matchAll(IMPORT_SOURCE_RE)) {
+      const id = frameworkOfModule(match[1]);
+      if (id) return found(id, `imported by ${relative(repoRoot, file)}`);
+      const other = UNREADABLE_FRAMEWORKS.find(([, re]) => re.test(match[1]));
+      if (other && !unreadable) unreadable = other[0];
+    }
+  }
+
+  // 2. a config file at the repo root
+  let entries: string[] = [];
+  try {
+    entries = fs.readdirSync(repoRoot);
+  } catch {
+    entries = [];
+  }
+  for (const [id, re] of CONFIG_FILE_RE) {
+    const config = entries.find((entry) => re.test(entry));
+    if (config) return found(id, config);
+  }
+
+  // 3. a declared dependency
+  const pkg = readPackageJson(repoRoot);
+  const dependencies = {
+    ...(pkg.dependencies as Record<string, string> | undefined),
+    ...(pkg.devDependencies as Record<string, string> | undefined),
+  };
+  for (const [id, re] of DEPENDENCY_ID) {
+    const name = Object.keys(dependencies).find((dep) => re.test(dep));
+    if (name) return found(id, `package.json dependency ${name}`);
+  }
+  if (!unreadable) {
+    const other = Object.keys(dependencies).find((dep) =>
+      UNREADABLE_FRAMEWORKS.some(([, re]) => re.test(dep))
+    );
+    if (other) unreadable = UNREADABLE_FRAMEWORKS.find(([, re]) => re.test(other))![0];
+  }
+
+  // 4. the test script
+  const testScript = (pkg.scripts as Record<string, string> | undefined)?.test ?? '';
+  if (/\bvitest\b/.test(testScript)) return found('vitest', 'package.json test script');
+  if (/\bjest\b/.test(testScript)) return found('jest', 'package.json test script');
+  if (/\bbun\s+test\b/.test(testScript)) return found('bun', 'package.json test script');
+  if (!unreadable && /--test\b/.test(testScript)) unreadable = 'node:test';
+
+  return {
+    id: 'jest',
+    detected: false,
+    evidence: unreadable
+      ? `${unreadable} is configured, but SpecProof reads expect(res.status).toBe(…) assertions`
+      : 'no test framework found in this repo',
+    ...shape,
+  };
 }
 
 // ============================================================================
@@ -465,7 +712,9 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
 
   const spec = loadSpec(specPath);
 
-  const evidenceByOperation = collectTestEvidence(repoRoot);
+  const testFiles = findTestFiles(repoRoot);
+  const testFramework = detectTestFramework(repoRoot, testFiles);
+  const evidenceByOperation = collectTestEvidence(repoRoot, testFiles);
   const tagOrder = (spec.tags ?? []).map((t) => t.name);
   const tagDescriptions = new Map((spec.tags ?? []).map((t) => [t.name, t.description ?? '']));
   const byTag = new Map<string, OperationCoverage[]>();
@@ -525,7 +774,11 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
         method,
         specPath: specPathKey,
         summary: operation.summary ?? '',
+        hasRequestBody: operation.requestBody !== undefined,
         testFile: methodEvidence?.testFile ?? null,
+        suggestedTestFile:
+          methodEvidence?.testFile ??
+          `${testFramework.testDir}/${suggestedTestFileName(method, specPathKey, testFramework.extension)}`,
         testCount: methodEvidence?.testCount ?? 0,
         statuses,
         coveredCount,
@@ -555,6 +808,7 @@ export function buildCoverageReport(repoRoot: string = TARGET_REPO_ROOT): Covera
   return {
     repoName: resolveRepoName(repoRoot),
     hasSpec: true,
+    testFramework,
     tags,
     operationCount: operations.length,
     coveredCount: tags.reduce((n, t) => n + t.coveredCount, 0),

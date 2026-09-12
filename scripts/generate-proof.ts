@@ -20,7 +20,9 @@ import { fileURLToPath } from 'url';
 
 import {
   buildCoverageReport,
+  detectTestFramework,
   findSpecCandidates,
+  findTestFiles,
   looksLikeSpecFile,
   resolveRepoName,
   resolveSpecPath,
@@ -64,6 +66,10 @@ export function emptyProof(hasSpec: boolean): CoverageReport {
   return {
     repoName: resolveRepoName(TARGET_REPO_ROOT),
     hasSpec,
+    // Detected even with nothing to audit: the empty state is exactly where a
+    // repo is when the first suggested test would be written, and the panel
+    // has no other source for it.
+    testFramework: detectTestFramework(TARGET_REPO_ROOT, findTestFiles(TARGET_REPO_ROOT)),
     tags: [],
     operationCount: 0,
     coveredCount: 0,

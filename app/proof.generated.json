@@ -1,6 +1,13 @@
 {
   "repoName": "specproof",
   "hasSpec": true,
+  "testFramework": {
+    "id": "vitest",
+    "detected": true,
+    "evidence": "imported by example/tests/auth-login.integration.test.ts",
+    "extension": ".test.ts",
+    "testDir": "tests/unit"
+  },
   "tags": [
     {
       "tag": "Auth",
@@ -10,7 +17,9 @@
           "method": "post",
           "specPath": "/auth/login",
           "summary": "Exchange credentials for a session token",
+          "hasRequestBody": false,
           "testFile": "example/tests/auth-login.integration.test.ts",
+          "suggestedTestFile": "example/tests/auth-login.integration.test.ts",
           "testCount": 2,
           "statuses": [
             {
@@ -63,7 +72,9 @@
           "method": "get",
           "specPath": "/tasks",
           "summary": "List tasks for the authenticated user",
+          "hasRequestBody": false,
           "testFile": "example/tests/tasks-list.integration.test.ts",
+          "suggestedTestFile": "example/tests/tasks-list.integration.test.ts",
           "testCount": 2,
           "statuses": [
             {
@@ -108,7 +119,9 @@
           "method": "post",
           "specPath": "/tasks",
           "summary": "Create a task",
+          "hasRequestBody": false,
           "testFile": "example/tests/tasks-create.integration.test.ts",
+          "suggestedTestFile": "example/tests/tasks-create.integration.test.ts",
           "testCount": 3,
           "statuses": [
             {
@@ -173,7 +186,9 @@
           "method": "get",
           "specPath": "/tasks/{taskId}",
           "summary": "Fetch a single task",
+          "hasRequestBody": false,
           "testFile": "example/tests/tasks-get.integration.test.ts",
+          "suggestedTestFile": "example/tests/tasks-get.integration.test.ts",
           "testCount": 3,
           "statuses": [
             {
@@ -223,7 +238,9 @@
           "method": "patch",
           "specPath": "/tasks/{taskId}",
           "summary": "Update a task's fields",
+          "hasRequestBody": false,
           "testFile": "example/tests/tasks-update.integration.test.ts",
+          "suggestedTestFile": "example/tests/tasks-update.integration.test.ts",
           "testCount": 2,
           "statuses": [
             {
@@ -274,7 +291,9 @@
           "method": "delete",
           "specPath": "/tasks/{taskId}",
           "summary": "Delete a task",
+          "hasRequestBody": false,
           "testFile": "example/tests/tasks-delete.integration.test.ts",
+          "suggestedTestFile": "example/tests/tasks-delete.integration.test.ts",
           "testCount": 1,
           "statuses": [
             {
@@ -320,7 +339,9 @@
           "method": "get",
           "specPath": "/projects",
           "summary": "List projects",
+          "hasRequestBody": false,
           "testFile": null,
+          "suggestedTestFile": "tests/unit/projects-get.test.ts",
           "testCount": 0,
           "statuses": [
             {
