@@ -47,9 +47,9 @@ SPECPROOF_TELEMETRY=0          # per run or in CI
 DO_NOT_TRACK=1                 # the cross-tool standard
 ```
 
-`specproof telemetry` shows the current setting. To see exactly what would be sent without sending it, set `SPECPROOF_TELEMETRY_DEBUG=1`.
+`specproof telemetry` shows the current setting. To see exactly what would be sent without sending it, set `SPECPROOF_TELEMETRY_DEBUG=1` (this prints everything the CLI itself builds, but not the approximate location below, which is added after the event arrives).
 
-**What an event contains:** the command (`generate`, `dev`, `build`, `start`), the names of the flags used (never their values), whether it succeeded and how long it took, the SpecProof version, Node major version, OS and CPU architecture, package manager, whether it ran in CI and which provider, and the report's shape in ranges: operation and response counts (for example `10-49`), untested operations, and verified coverage rounded down to 10%.
+**What an event contains:** the command (`generate`, `dev`, `build`, `start`), the names of the flags used (never their values), whether it succeeded and how long it took, the SpecProof version, Node major version, OS and CPU architecture, package manager, whether it ran in CI and which provider, and the report's shape in ranges: operation and response counts (for example `10-49`), untested operations, and verified coverage rounded down to 10%. No person profile is ever created, so events aren't tied to an identity, but PostHog's GeoIP lookup does attach an approximate location (city, country, coordinates, timezone) derived from the sending machine's IP address at the time the event arrives.
 
 **Identifiers:** a random ID created on first run and stored in `~/.config/specproof/telemetry.json` (`%APPDATA%\specproof` on Windows), and a salted hash of the repo's git remote, so we can count repos without receiving their URLs.
 
