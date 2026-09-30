@@ -27,7 +27,7 @@ import path from 'path';
  * PostHog project API key. Safe to publish: PostHog's capture endpoint is
  * write-only and returns no project data. Empty means telemetry is off.
  */
-export const POSTHOG_KEY = '';
+export const POSTHOG_KEY = 'phc_xMU9yCDXrsotAk9jjwihLPErwBwjunNZ3eBsKxDFAPMj';
 /** EU cloud. Use https://us.i.posthog.com if the project lives in the US region. */
 export const POSTHOG_HOST = 'https://eu.i.posthog.com';
 
