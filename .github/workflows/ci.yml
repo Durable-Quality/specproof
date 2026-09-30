@@ -8,6 +8,10 @@ on:
     branches: main
   workflow_dispatch:
 
+# Every job here runs the CLI, and our own runs aren't adoption.
+env:
+  SPECPROOF_TELEMETRY: '0'
+
 jobs:
   build:
     name: Build
@@ -38,6 +42,7 @@ jobs:
       - name: ✅ Verify published CLI runs under plain Node (no Bun)
         run: |
           node dist/scripts/cli.js --help
+          node dist/scripts/cli.js telemetry
           node dist/scripts/cli.js generate --out /tmp/specproof-node-smoke.json
           test -s /tmp/specproof-node-smoke.json
 

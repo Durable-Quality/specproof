@@ -21,6 +21,8 @@ specproof start        # serve the production build
 --allow-empty     generate only: write a proof with no operations even if the one replaced had some
 --port <port>     dev/start only: port to serve on (default: 3001)
 --no-watch        dev only: don't rebuild the proof when the spec or tests change
+
+specproof telemetry [status|enable|disable]   # anonymous usage reporting (telemetry.ts)
 ```
 
 `dev` also watches the audited repo (`watchSources`: a debounced `fs.watch`

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.5] - 2026-09-30
 
 ### Added
+- Anonymous CLI telemetry: one PostHog event per `generate` / `dev` / `build` / `start`, with a one-time notice. Off with `specproof telemetry disable`, `SPECPROOF_TELEMETRY=0` or `DO_NOT_TRACK=1`; `SPECPROOF_TELEMETRY_DEBUG=1` prints the event instead of sending it. README.md lists exactly what is sent.
+- `specproof telemetry [status|enable|disable]`.
 - A daily adoption-metrics workflow (`.github/workflows/metrics.yml`) now collects npm downloads (with a likely-real estimate), GitHub stars/traffic, and public adopters, and commits the snapshot to the `metrics` branch.
 
 ### Fixed

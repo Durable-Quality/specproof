@@ -15,6 +15,8 @@ import { createRequire } from 'module';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
+import { createTelemetry, describeStatus, DOCS_URL, readProof, type CommandRun } from './telemetry.js';
+
 // This file runs both as source (scripts/cli.ts, via `bun run dev` in this
 // repo's own dev loop) and compiled (dist/scripts/cli.js, once installed as
 // a dependency — see tsconfig.cli.json) — one directory level deeper than
@@ -42,6 +44,7 @@ Commands:
   dev        generate, then serve the audit view with next dev
   build      generate, then production-build the audit view
   start      Serve the production build
+  telemetry  Show or change anonymous usage reporting: status (default), enable, disable
 
 Options:
   --repo <path>   Repo to audit (default: current directory; env SPECPROOF_REPO)
@@ -56,6 +59,9 @@ Options:
                   one being replaced had some
   --port <port>   dev/start only: port to serve on (default: 3001)
   --no-watch      dev only: don't rebuild the proof when the spec or tests change
+
+SpecProof sends anonymous usage data. Turn it off with \`specproof telemetry disable\`
+or SPECPROOF_TELEMETRY=0. What is sent: ${DOCS_URL}
 `;
 
 function fail(message: string): never {
@@ -65,11 +71,43 @@ function fail(message: string): never {
 
 const [command, ...rest] = process.argv.slice(2);
 
+const startedAt = Date.now();
+const telemetry = createTelemetry({
+  // Running from source means this repo's own dev loop, which isn't adoption.
+  fromSource: import.meta.url.endsWith('.ts'),
+  repoRoot: () => path.resolve(process.env.SPECPROOF_REPO ?? process.cwd()),
+  runtime: {
+    version: (JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json'), 'utf8')) as { version: string }).version,
+    env: process.env,
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+  },
+});
+
+if (command === 'telemetry') {
+  const sub = rest[0] ?? 'status';
+  if (rest.length > 1 || !['status', 'enable', 'disable'].includes(sub)) {
+    fail('usage: specproof telemetry [status|enable|disable]');
+  }
+  if (sub !== 'status' && !telemetry.setEnabled(sub === 'enable')) {
+    console.error(`specproof: couldn't write ${telemetry.configFile}. Set SPECPROOF_TELEMETRY=0 instead.`);
+    process.exit(1);
+  }
+  console.log(`Telemetry is ${describeStatus(telemetry.status())}.`);
+  console.log(`Setting stored in ${telemetry.configFile}`);
+  console.log(`What is sent: ${DOCS_URL}`);
+  process.exit(0);
+}
+
 let port = '3001';
 let watch = true;
 const generateArgs: string[] = [];
+/** Flag names for telemetry. Never their values, which are paths and ports. */
+const flagNames: string[] = [];
 for (let i = 0; i < rest.length; i++) {
   const arg = rest[i];
+  if (arg.startsWith('--')) flagNames.push(arg);
   const value = () => {
     const v = rest[++i];
     if (!v) fail(`${arg} requires a value`);
@@ -178,11 +216,42 @@ async function watchSources(onChange: () => void): Promise<void> {
   }
 }
 
+/** One telemetry event per command. Fire and forget; `exit` gives it a moment to go out. */
+function record(run: Omit<CommandRun, 'flags'>): void {
+  void telemetry.track({ ...run, flags: flagNames });
+}
+
+async function exit(code: number): Promise<never> {
+  await telemetry.flush();
+  process.exit(code);
+}
+
+const elapsed = () => Date.now() - startedAt;
+
+async function bundledProofPath(): Promise<string> {
+  const { GENERATED_PROOF_PATH } = await import('./generate-proof.js');
+  return GENERATED_PROOF_PATH;
+}
+
 async function main(): Promise<void> {
+  if (command === 'generate' || command === 'dev' || command === 'build' || command === 'start') {
+    telemetry.notice();
+  }
   switch (command) {
-    case 'generate':
-      process.exit(await generate(generateArgs));
+    case 'generate': {
+      const code = await generate(generateArgs);
+      const outFlag = generateArgs.indexOf('--out');
+      const out = outFlag >= 0 ? generateArgs[outFlag + 1] : (process.env.SPECPROOF_OUT ?? (await bundledProofPath()));
+      record({
+        command,
+        outcome: code === 0 ? 'ok' : 'error',
+        exitCode: code,
+        durationMs: elapsed(),
+        proof: code === 0 ? readProof(path.resolve(out)) : undefined,
+      });
+      await exit(code);
       break;
+    }
     // dev/build always refresh the bundled artifact — it is what the app
     // renders. A consumer's committed copy (--out) is generate's concern.
     //
@@ -207,6 +276,8 @@ async function main(): Promise<void> {
         }
         console.warn('specproof: starting anyway. The audit view will refresh once the spec parses.');
       }
+      // Sent now, not on exit: a dev server usually ends with Ctrl-C.
+      record({ command, outcome: 'started', durationMs: elapsed(), proof: readProof(await bundledProofPath()) });
 
       if (watch) {
         let running = false;
@@ -225,11 +296,21 @@ async function main(): Promise<void> {
     case 'build': {
       // Unlike dev, a spec that won't compile is a hard build failure.
       const generated = await generate(['--allow-empty']);
-      if (generated !== 0) process.exit(generated);
-      process.exit(nextCli('build', appRoot));
+      const code = generated !== 0 ? generated : nextCli('build', appRoot);
+      record({
+        command,
+        outcome: code === 0 ? 'ok' : 'error',
+        exitCode: code,
+        durationMs: elapsed(),
+        proof: generated === 0 ? readProof(await bundledProofPath()) : undefined,
+      });
+      await exit(code);
       break;
     }
     case 'start':
+      // Sent before the server starts: spawnSync blocks until it stops.
+      record({ command, outcome: 'started' });
+      await telemetry.flush();
       process.exit(nextCli('start', appRoot, '--port', port));
       break;
     case 'help':
