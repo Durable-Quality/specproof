@@ -120,6 +120,16 @@ The marketing site's hero carries a mirror of that same proof. `bun run generate
 
 Every merge to `main` then triggers `.github/workflows/release.yml`, which publishes to npm when `package.json`'s version isn't already on the registry (needs the `NPM_TOKEN` repo secret). It installs deps with Bun, then runs `npm publish`, whose `prepublishOnly` lifecycle script rebuilds `dist/` before packing. To release: bump `version` in `package.json`, open a PR, and merge. There is no manual release trigger.
 
+## Adoption metrics
+
+`.github/workflows/metrics.yml` runs `scripts/metrics/collect.ts` once a day (and on manual dispatch) and commits what it finds to the `metrics` branch, an orphan branch holding only data. That branch's `README.md` is the readable summary; the JSON beside it is the history. It is not part of the package and nothing in the app reads it. Sources, each allowed to fail on its own without stopping the run:
+
+- **npm**: downloads per day since first publish, per-version downloads for the last week (saved per run, since npm keeps no history of them), and publish dates from the registry.
+- **GitHub API**: stars, forks, watchers, and issues and PRs counted separately (the repo's `open_issues_count` lumps them together). Traffic (views, clones, referrers) is saved every run because GitHub deletes it after 14 days; it needs the `METRICS_TOKEN` secret, a fine-grained token with Administration: read on this repo, since `GITHUB_TOKEN` can't be granted that. Without it the run skips traffic and does the rest.
+- **Adopters**: code search for `specproof` in `package.json` files (kept only when the fragment shows it as a dependency, with its version) and in `.github/workflows`, plus the dependents graph, which has no API and is read from the HTML (`parseDependentsPage` throws on a page it doesn't recognise rather than reporting zero). Repos owned by `METRICS_INTERNAL_OWNERS` are recorded but not counted.
+
+npm counts downloads, not people, so `estimateRealDownloads` (`scripts/metrics/estimate.ts`) sets aside each publish day and the day after as release noise, then charges registry crawlers a per-version daily rate calibrated from how often superseded versions were downloaded last week. What's left is reported as likely real, with a range from the lowest and highest per-version rate. This repo's CI adds nothing to npm's counts: it installs a locally packed tarball with `--no-install`, and the release job only reads version metadata. `tests/unit/metrics.test.ts` pins the method to the real 29 Sep 2026 snapshot (~397 likely real, 304–470), the numbers the first adoption report used.
+
 ## Notes on the parsing approach
 
 `lib/api-test-coverage.ts` parses test files with regexes rather than a real TS/AST parser, relying on prettier-consistent formatting conventions in the audited repo:

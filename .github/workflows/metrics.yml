@@ -1,0 +1,68 @@
+name: 📈 Adoption metrics
+
+# Daily snapshot of what npm and GitHub show publicly about SpecProof's use:
+# downloads with a best-effort estimate of real ones, traffic (which GitHub
+# deletes after 14 days), stars, issues and PRs, and public repos that use
+# specproof. Everything lands on the `metrics` branch; its README is the
+# readable summary. See scripts/metrics/collect.ts.
+
+on:
+  schedule:
+    - cron: "41 4 * * *" # daily, after npm has finished counting the previous UTC day
+  workflow_dispatch:
+
+permissions:
+  contents: write # push snapshots to the metrics branch
+
+concurrency:
+  group: adoption-metrics
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # The collector only uses Node built-ins, so no `bun install` is needed.
+
+      - name: 🗂️ Check out the metrics branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin metrics >/dev/null; then
+            git fetch --depth=1 origin metrics
+            git worktree add metrics-data FETCH_HEAD
+            git -C metrics-data checkout -B metrics
+          else
+            echo "::notice::No metrics branch yet, starting one"
+            git worktree add --orphan -b metrics metrics-data
+          fi
+
+      - name: 📈 Collect
+        env:
+          # Fine-grained token, this repo only, Administration: read. Needed for
+          # traffic; without it the run skips traffic and does everything else.
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Repos owned by these accounts don't count as adopters.
+          METRICS_INTERNAL_OWNERS: Durable-Quality,Hiccup-za
+        run: bun scripts/metrics/collect.ts --data metrics-data
+
+      - name: 💾 Push the snapshot
+        working-directory: metrics-data
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::notice::Nothing changed since the last snapshot"
+            exit 0
+          fi
+          git commit -q -m "metrics: $(date -u +%F)"
+          git push origin HEAD:metrics
