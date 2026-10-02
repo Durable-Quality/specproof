@@ -23,3 +23,6 @@ COVERAGE.md
 .env
 .env.*
 !.env.example
+
+# adoption metrics scratch output (the workflow writes to the metrics branch instead)
+metrics-data/

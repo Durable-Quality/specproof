@@ -21,6 +21,8 @@ specproof start        # serve the production build
 --allow-empty     generate only: write a proof with no operations even if the one replaced had some
 --port <port>     dev/start only: port to serve on (default: 3001)
 --no-watch        dev only: don't rebuild the proof when the spec or tests change
+
+specproof telemetry [status|enable|disable]   # anonymous usage reporting (telemetry.ts)
 ```
 
 `dev` also watches the audited repo (`watchSources`: a debounced `fs.watch`
@@ -104,3 +106,24 @@ server. If Terminal 1 is killed hard enough to skip the restore, run
 `bun run generate:proof` to put this repo's proof back. `manual:spec` /
 `manual:path` / `manual:test` / `manual:status` all require `manual:dev` to
 have run first.
+
+## metrics/
+
+Daily adoption snapshot, run by `.github/workflows/metrics.yml` and committed
+to the `metrics` branch. See "Adoption metrics" in the top-level `CLAUDE.md`.
+
+```bash
+bun run metrics                              # writes to ./metrics-data (gitignored)
+bun scripts/metrics/collect.ts --data <dir>  # or anywhere else
+```
+
+`collect.ts` runs the sources (`sources.ts`), merges them into the history
+already in `--data` (`merge.ts`), estimates likely real downloads
+(`estimate.ts`), and writes `README.md` (`report.ts`) and `summary.json`. Set
+`GITHUB_TOKEN` for code search, and `METRICS_TOKEN` (fine-grained,
+Administration: read) for traffic. A source that fails is listed at the end of
+the README; the run only fails when none worked.
+
+```bash
+bunx vitest run tests/unit/metrics.test.ts   # estimate, merging, dependents parsing, report
+```

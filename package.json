@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "MIT",
   "repository": "github:Durable-Quality/specproof",
@@ -42,6 +42,7 @@
     "manual:spec": "bun scripts/manual-dev-watch.ts spec",
     "manual:status": "bun scripts/manual-dev-watch.ts status",
     "manual:test": "bun scripts/manual-dev-watch.ts test",
+    "metrics": "bun scripts/metrics/collect.ts",
     "prepublishOnly": "npm run build:cli",
     "start": "bunx next start --port 3001",
     "test": "vitest run",

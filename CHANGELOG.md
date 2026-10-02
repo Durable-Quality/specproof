@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] - 2026-09-30
+
+### Added
+- Anonymous CLI telemetry, opt out with `specproof telemetry disable`, `SPECPROOF_TELEMETRY=0`, or `DO_NOT_TRACK=1`. See README for details.
+- `specproof telemetry [status|enable|disable]`.
+- A daily adoption-metrics workflow (`.github/workflows/metrics.yml`) now collects npm downloads (with a likely-real estimate), GitHub stars/traffic, and public adopters, and commits the snapshot to the `metrics` branch.
+
+### Fixed
+- The app now ships `app/icon.png` as its favicon, instead of falling back to the browser default.
+
 ## [0.9.4] - 2026-09-04
 
 ### Changed
