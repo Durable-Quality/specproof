@@ -55,7 +55,7 @@ DO_NOT_TRACK=1                 # the cross-tool standard
 
 **Never sent:** code, file paths, spec or test contents, repo or package names, or flag values.
 
-Events go to [PostHog](https://posthog.com) (EU region) as anonymous events, with no person profiles. The project is set to discard IP addresses.
+Events go to [PostHog](https://posthog.com) (EU region) as anonymous events, with no person profiles. The IP address used for that GeoIP lookup is not otherwise stored: the project is set to discard it once the event is enriched.
 
 ## License
 
