@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-10-20
+
+### Fixed
+- Spec discovery starts at the git repository containing the current directory, so `specproof dev` finds a spec that lives above the directory you started in. `--repo` still audits exactly the directory you pass.
+
+### Added
+- A `.json`, `.yaml`, or `.yml` file is discovered as the spec when it has a root `openapi` or `swagger` version and the repo has no `openapi*` or `swagger*` file. The specification identifies a document by that field and allows any filename. The shallowest conventional name still wins.
+
+### Upgrading
+- Running from a subdirectory now audits the whole git repo. To keep auditing only one package, pass `--repo` for that package.
+
 ## [0.9.4] - 2026-09-04
 
 ### Changed
