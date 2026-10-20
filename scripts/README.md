@@ -14,7 +14,7 @@ specproof dev         # generate, then serve the audit view with next dev
 specproof build        # generate, then production-build the audit view
 specproof start        # serve the production build
 
---repo <path>     repo to audit (default: cwd; env SPECPROOF_REPO)
+--repo <path>     repo to audit (default: the git repo containing cwd; env SPECPROOF_REPO)
 --spec <path>     OpenAPI spec, relative to the repo root (env SPECPROOF_SPEC)
 --out <path>      generate only: where to write the proof (env SPECPROOF_OUT)
 --check           generate only: verify --out is current instead of writing; exits 1 on drift
@@ -24,7 +24,7 @@ specproof start        # serve the production build
 ```
 
 `dev` also watches the audited repo (`watchSources`: a debounced `fs.watch`
-on spec-named files and `*.test.*`), regenerating the bundled artifact so
+on JSON/YAML files and `*.test.*`), regenerating the bundled artifact so
 Next's HMR refreshes the view without a restart.
 
 ## generate-proof.ts

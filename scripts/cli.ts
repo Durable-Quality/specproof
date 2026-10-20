@@ -44,10 +44,11 @@ Commands:
   start      Serve the production build
 
 Options:
-  --repo <path>   Repo to audit (default: current directory; env SPECPROOF_REPO)
-  --spec <path>   OpenAPI spec (JSON or YAML), relative to the repo root when the
-                  auto-discovery of openapi* / swagger* doesn't apply, or when a
-                  repo holds more than one (env SPECPROOF_SPEC)
+  --repo <path>   Repo to audit (default: the git repo containing the current
+                  directory; env SPECPROOF_REPO)
+  --spec <path>   OpenAPI spec (JSON or YAML), relative to the repo root when
+                  auto-discovery doesn't apply, or when a repo holds more than
+                  one (env SPECPROOF_SPEC)
   --out <path>    generate only: where to write the proof (default: the app's
                   bundled artifact; env SPECPROOF_OUT)
   --check         generate only: verify the proof at --out is up to date instead
@@ -142,9 +143,13 @@ const IGNORED_RE = /(^|[\\/])(node_modules|\.next|\.git|dist)([\\/]|$)/;
 async function watchSources(onChange: () => void): Promise<void> {
   // Dynamic, for the same reason generate() is: a static import would freeze
   // the analyzer's view of SPECPROOF_REPO before the flags above parsed.
-  const { looksLikeSpecFile } = await import('../lib/api-test-coverage.js');
+  const { isWatchableSpecFile, TARGET_REPO_ROOT } = await import('../lib/api-test-coverage.js');
 
-  const root = path.resolve(process.env.SPECPROOF_REPO ?? process.cwd());
+  // The same root the analyzer audited: the git repo containing the working
+  // directory, unless --repo named one. Watching that tree, rather than only
+  // the directory the command was started in, is what lets a spec above the
+  // current directory refresh the view.
+  const root = TARGET_REPO_ROOT;
   const explicitSpec = process.env.SPECPROOF_SPEC
     ? path.resolve(root, process.env.SPECPROOF_SPEC)
     : null;
@@ -156,10 +161,10 @@ async function watchSources(onChange: () => void): Promise<void> {
   const isSource = (file: string): boolean => {
     if (IGNORED_RE.test(file)) return false;
     if (explicitSpec && path.resolve(root, file) === explicitSpec) return true;
-    // Deliberately excludes the proof itself: when a repo audits itself, the
-    // generator writes the artifact back into the watched tree, and treating
+    // isWatchableSpecFile excludes the proof itself: when a repo audits itself,
+    // the generator writes the artifact back into the watched tree, and treating
     // that as a source change would loop forever.
-    return looksLikeSpecFile(path.basename(file)) || TEST_FILE_RE.test(file);
+    return isWatchableSpecFile(path.basename(file)) || TEST_FILE_RE.test(file);
   };
 
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -2,11 +2,13 @@
 // compiled from.
 //
 // Joins two sources of truth in the audited target repo:
-//   1. The OpenAPI spec (auto-discovered `openapi*` / `swagger*` in .json,
-//      .yaml, or .yml, or SPECPROOF_SPEC) — every documented operation and its
-//      response status codes. JSON and YAML are parsed into the same document
-//      and produce byte-identical proofs, so converting a spec between the two
-//      is never itself a source of drift.
+//   1. The OpenAPI spec, auto-discovered inside the git repo (or SPECPROOF_REPO
+//      when that is set). The shallowest `openapi*` / `swagger*` file in .json,
+//      .yaml, or .yml wins; with none of those, any other document in those
+//      formats whose root object carries an `openapi` or `swagger` version.
+//      SPECPROOF_SPEC overrides discovery. JSON and YAML are parsed into the
+//      same document and produce byte-identical proofs, so converting a spec
+//      between the two is never itself a source of drift.
 //   2. The repo's test files (`*.test.ts` / `*.test.tsx` / `*.test.js`) —
 //      which statuses each operation actually has assertions for, parsed from
 //      `describe("METHOD /path")` blocks and their `.status).toBe(NNN)`
@@ -24,13 +26,37 @@ import path from 'path';
 import { parse as parseYaml } from 'yaml';
 
 /**
- * The repo the proof audits. Configurable via the SPECPROOF_REPO env var;
- * defaults to the directory SpecProof is run from, so installing it into a
- * repo and running the generator there just works.
+ * The git repository that contains `startDir`. A `.git` file counts as well as
+ * a directory: worktrees and submodules use a file. When nothing above
+ * `startDir` is a repository, `startDir` itself is the root — discovery never
+ * widens past the directory it was given in that case.
  */
-export const TARGET_REPO_ROOT = process.env.SPECPROOF_REPO
-  ? path.resolve(process.env.SPECPROOF_REPO)
-  : process.cwd();
+export function findRepoRoot(startDir: string): string {
+  let dir = path.resolve(startDir);
+  const origin = dir;
+  while (true) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return origin;
+    dir = parent;
+  }
+}
+
+/**
+ * Where an audit looks. An explicit repo (`SPECPROOF_REPO` / `--repo`) is used
+ * as given and is not widened to a parent. Otherwise the git repo containing
+ * the working directory, so running `specproof dev` from a subdirectory still
+ * audits the repo SpecProof was installed into.
+ */
+export function resolveAuditRoot(envRepo: string | undefined, cwd: string): string {
+  return envRepo ? path.resolve(envRepo) : findRepoRoot(cwd);
+}
+
+/**
+ * The repo the proof audits. Resolved once, when this module loads, which is
+ * why the CLI sets SPECPROOF_REPO before importing it.
+ */
+export const TARGET_REPO_ROOT = resolveAuditRoot(process.env.SPECPROOF_REPO, process.cwd());
 
 /** Directories never worth scanning for specs or tests */
 const EXCLUDED_DIRS = new Set([
@@ -46,9 +72,17 @@ const EXCLUDED_DIRS = new Set([
 ]);
 
 const SPEC_FILE_RE = /^(?:openapi|swagger)[^/]*\.(?:json|ya?ml)$/i;
+const DOCUMENT_EXT_RE = /\.(?:json|ya?ml)$/i;
 const JSON_SPEC_RE = /\.json$/i;
 const YAML_SPEC_RE = /\.ya?ml$/i;
 const TEST_FILE_RE = /\.test\.(?:ts|tsx|js|jsx)$/;
+/** The OpenAPI spec requires the version field to be a string like `3.0.0`. */
+const OPENAPI_VERSION_RE = /^\d+\.\d+/;
+/**
+ * The artifact the generator writes back into a repo that audits itself.
+ * It is JSON, so a watcher that rebuilds on every JSON save would loop.
+ */
+const PROOF_BASENAME = 'proof.generated.json';
 
 /** Recursively collect files matching `matches`, skipping EXCLUDED_DIRS */
 function walk(dir: string, matches: (name: string) => boolean): string[] {
@@ -65,27 +99,86 @@ function walk(dir: string, matches: (name: string) => boolean): string[] {
   return found;
 }
 
-/**
- * Every spec the target repo could be audited against, best candidate first:
- * shallowest in the tree, then alphabetical. The alphabetical tiebreak is what
- * makes `openapi.json` win over an `openapi.yaml` beside it — a repo that
- * checks in a converted copy keeps auditing the copy it always did. Callers
- * that care about ambiguity (the generator warns about it) can inspect the
- * runners-up; `resolveSpecPath` just takes the winner.
- */
-export function findSpecCandidates(repoRoot: string = TARGET_REPO_ROOT): string[] {
-  if (!fs.existsSync(repoRoot)) return [];
-  return walk(repoRoot, (name) => SPEC_FILE_RE.test(name)).sort(
-    (a, b) =>
-      a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b)
-  );
+/** Shallowest path first, then alphabetical. Depth is counted in path segments
+ *  so a file at the repo root beats one in a subdirectory on any platform. */
+function byLocation(a: string, b: string): number {
+  return a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b);
+}
+
+function isOpenApiVersion(value: unknown): boolean {
+  return typeof value === 'string' && OPENAPI_VERSION_RE.test(value.trim());
 }
 
 /**
- * Whether a bare filename is one auto-discovery would read as an API
- * definition. The generator uses this to refuse writing a proof under such a
- * name: the proof is not a spec, and a file called `openapi-proof.json` would
- * be picked up as one on the next run.
+ * Whether a JSON or YAML file is an OpenAPI (or Swagger 2.0) document.
+ * The spec identifies a document by its root `openapi` or `swagger` version,
+ * not by its filename, and those field names are case-sensitive. A file that
+ * cannot be parsed is not a document: one broken file must not hide another.
+ * YAML 1.2 reads an unquoted `2.0` as a number and drops the fraction, so a
+ * numeric value only counts when the source still shows a dotted version at
+ * the root.
+ */
+function isOpenApiDocument(filePath: string): boolean {
+  let source: string;
+  try {
+    source = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return false;
+  }
+  if (!source.includes('openapi') && !source.includes('swagger')) return false;
+  source = source.replace(/^\uFEFF/, '');
+
+  let parsed: unknown;
+  try {
+    parsed = JSON_SPEC_RE.test(filePath) ? JSON.parse(source) : parseYaml(source);
+  } catch {
+    return false;
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+
+  const root = parsed as { openapi?: unknown; swagger?: unknown };
+  if (isOpenApiVersion(root.openapi) || isOpenApiVersion(root.swagger)) return true;
+  if (typeof root.openapi !== 'number' && typeof root.swagger !== 'number') return false;
+  return /^(?:openapi|swagger)\s*:\s*['"]?\d+\.\d+/m.test(source);
+}
+
+/**
+ * A filename the dev watcher should rebuild on. Any `.json` / `.yaml` / `.yml`
+ * file might be the spec under a name the repo chose. The generated proof is
+ * excluded by name: it is JSON, and watching it would loop.
+ */
+export function isWatchableSpecFile(fileName: string): boolean {
+  return fileName !== PROOF_BASENAME && DOCUMENT_EXT_RE.test(fileName);
+}
+
+/**
+ * Every spec the target repo could be audited against, best candidate first.
+ *
+ * A file named `openapi*` or `swagger*` always wins, shallowest first and then
+ * alphabetically — the tiebreak that keeps `openapi.json` ahead of an
+ * `openapi.yaml` beside it, so a repo that checks in a converted copy keeps
+ * auditing the copy it always did. Only when the tree has none of those does
+ * discovery read other JSON and YAML files and keep the ones that are OpenAPI
+ * documents. The spec allows any filename; the recommended name stays the one
+ * a repo that followed it gets audited against. Callers that care about
+ * ambiguity (the generator warns about it) can inspect the runners-up;
+ * `resolveSpecPath` just takes the winner.
+ */
+export function findSpecCandidates(repoRoot: string = TARGET_REPO_ROOT): string[] {
+  if (!fs.existsSync(repoRoot)) return [];
+  const conventional = walk(repoRoot, (name) => SPEC_FILE_RE.test(name)).sort(byLocation);
+  if (conventional.length > 0) return conventional;
+  return walk(repoRoot, (name) => DOCUMENT_EXT_RE.test(name))
+    .filter((file) => isOpenApiDocument(file))
+    .sort(byLocation);
+}
+
+/**
+ * Whether a bare filename is one auto-discovery treats as an API definition
+ * without reading it. The generator uses this to refuse writing a proof under
+ * such a name: the proof is not a spec, and a file called `openapi-proof.json`
+ * would be picked up as one on the next run. Any other filename is only a spec
+ * when its contents say so, which a proof does not.
  */
 export function looksLikeSpecFile(fileName: string): boolean {
   return SPEC_FILE_RE.test(fileName);

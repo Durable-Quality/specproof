@@ -1,7 +1,7 @@
 // Generates the coverage proof rendered by the SpecProof app from the
-// audited target repo's OpenAPI spec + test suites (the current directory by
-// default, override with SPECPROOF_REPO; spec auto-discovered, override with
-// SPECPROOF_SPEC).
+// audited target repo's OpenAPI spec + test suites (the git repo containing
+// the current directory by default, override with SPECPROOF_REPO; spec
+// auto-discovered, override with SPECPROOF_SPEC).
 //
 // Run via `bun run generate:proof` (also runs automatically before
 // `bun run dev` / `bun run build`) during development of this repo, or

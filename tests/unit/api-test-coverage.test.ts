@@ -9,10 +9,13 @@ import {
   dedent,
   expectedStatuses,
   extractItBlocks,
+  findRepoRoot,
   findSpecCandidates,
+  isWatchableSpecFile,
   loadSpec,
   operationKey,
   parseTestFile,
+  resolveAuditRoot,
   resolveSpecPath
 } from '@/lib/api-test-coverage';
 
@@ -362,6 +365,156 @@ describe('resolveSpecPath', () => {
       'openapi.yaml',
       path.join('docs', 'openapi.json')
     ]);
+  });
+
+  // The OpenAPI specification identifies a document by its root `openapi` or
+  // `swagger` version and recommends, but does not require, the names
+  // openapi.json and openapi.yaml. These files use other names on purpose.
+  const widgetDoc = [
+    'openapi: 3.0.0',
+    'info:',
+    '  title: Widgets',
+    '  version: "1.0.0"',
+    'paths:',
+    '  /widgets:',
+    '    get:',
+    '      responses:',
+    '        "200":',
+    '          description: OK',
+    ''
+  ].join('\n');
+
+  it('audits an OpenAPI document under any filename', () => {
+    const root = makeRepo({ 'docs/api.yaml': widgetDoc });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'docs', 'api.yaml'));
+  });
+
+  it('audits a JSON document whose name does not start with openapi or swagger', () => {
+    const root = makeRepo({
+      'contracts/service.json': JSON.stringify({
+        info: { title: 'Widgets', version: '1.0.0' },
+        openapi: '3.1.0',
+        paths: { '/widgets': { get: { responses: { '200': { description: 'OK' } } } } }
+      })
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'contracts', 'service.json'));
+  });
+
+  it('audits a Swagger 2.0 document, including an unquoted version YAML reads as a number', () => {
+    const root = makeRepo({
+      'spec/v2.yml': 'swagger: 2.0\ninfo:\n  title: Widgets\n  version: "1"\npaths: {}\n'
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'spec', 'v2.yml'));
+  });
+
+  it('recognizes a document after a comment header and a BOM', () => {
+    const root = makeRepo({
+      'api.yml': `\uFEFF# generated\n---\n${widgetDoc}`
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'api.yml'));
+  });
+
+  it('prefers a conventional name over a shallower document with another name', () => {
+    const root = makeRepo({
+      'api.yaml': widgetDoc,
+      'nested/openapi.yaml': 'openapi: 3.0.0\npaths: {}\n'
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'nested', 'openapi.yaml'));
+  });
+
+  it('keeps a conventional filename even when it is only a scaffold', () => {
+    const root = makeRepo({
+      'openapi.json': '{}',
+      'docs/api.yaml': widgetDoc
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'openapi.json'));
+  });
+
+  it('ignores JSON and YAML that only mention OpenAPI in passing', () => {
+    const root = makeRepo({
+      'package.json': JSON.stringify({
+        name: 'widgets',
+        description: 'uses openapi tooling'
+      }),
+      'config.yaml': 'server:\n  port: 3000\n',
+      'notes.yaml': 'tools:\n  openapi: 3.0.0\n',
+      'enabled.yaml': 'openapi: 1\n'
+    });
+    expect(resolveSpecPath(root)).toBeNull();
+  });
+
+  it('skips a malformed document and keeps looking', () => {
+    const root = makeRepo({
+      'docs/broken.yaml': 'openapi: [\n',
+      'docs/api.yaml': widgetDoc
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'docs', 'api.yaml'));
+  });
+
+  it('breaks equal-depth ties alphabetically when names are unconventional', () => {
+    const root = makeRepo({
+      'b/service.yaml': widgetDoc,
+      'a/service.yaml': widgetDoc
+    });
+    expect(resolveSpecPath(root)).toBe(path.join(root, 'a', 'service.yaml'));
+  });
+
+  it('searches only the directory it was given', () => {
+    const root = makeRepo({
+      'api/openapi.yaml': widgetDoc,
+      'src/readme.md': 'no spec here'
+    });
+    expect(resolveSpecPath(path.join(root, 'src'))).toBeNull();
+  });
+});
+
+describe('findRepoRoot', () => {
+  it('walks up to the directory that contains .git', () => {
+    const root = makeRepo({});
+    fs.mkdirSync(path.join(root, '.git'));
+    const nested = path.join(root, 'src', 'app');
+    fs.mkdirSync(nested, { recursive: true });
+    expect(findRepoRoot(nested)).toBe(root);
+  });
+
+  it('treats a .git file as the repo root', () => {
+    const root = makeRepo({});
+    fs.writeFileSync(path.join(root, '.git'), 'gitdir: /somewhere\n');
+    const nested = path.join(root, 'packages', 'api');
+    fs.mkdirSync(nested, { recursive: true });
+    expect(findRepoRoot(nested)).toBe(root);
+  });
+
+  it('stays at the start directory when no repository exists above it', () => {
+    const nested = path.join(makeRepo({}), 'src');
+    fs.mkdirSync(nested);
+    expect(findRepoRoot(nested)).toBe(nested);
+  });
+
+  it('does not widen an explicit repo path to a parent git root', () => {
+    const root = makeRepo({});
+    fs.mkdirSync(path.join(root, '.git'));
+    const nested = path.join(root, 'packages', 'api');
+    fs.mkdirSync(nested, { recursive: true });
+    expect(resolveAuditRoot(nested, path.join(root, 'src'))).toBe(nested);
+  });
+
+  it('uses the git root when no repo was named', () => {
+    const root = makeRepo({});
+    fs.mkdirSync(path.join(root, '.git'));
+    const nested = path.join(root, 'src');
+    fs.mkdirSync(nested);
+    expect(resolveAuditRoot(undefined, nested)).toBe(root);
+  });
+});
+
+describe('isWatchableSpecFile', () => {
+  it('rebuilds on any JSON or YAML file, and never on the generated proof', () => {
+    expect(isWatchableSpecFile('api.yaml')).toBe(true);
+    expect(isWatchableSpecFile('openapi.json')).toBe(true);
+    expect(isWatchableSpecFile('service.yml')).toBe(true);
+    expect(isWatchableSpecFile('proof.generated.json')).toBe(false);
+    expect(isWatchableSpecFile('client.ts')).toBe(false);
   });
 });
 
