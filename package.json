@@ -22,6 +22,10 @@
     "dist",
     "lib",
     "!app/proof.generated.json",
+    "instrumentation.ts",
+    "instrumentation-client.ts",
+    "sentry.server.config.ts",
+    "sentry.edge.config.ts",
     "next.config.js",
     "postcss.config.js",
     "tailwind.config.ts",
@@ -54,6 +58,7 @@
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.16",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@sentry/nextjs": "^11.10.0",
     "@types/node": "24.1.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

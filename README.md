@@ -35,6 +35,21 @@ Run `specproof --help` for the full option list:
 - `--allow-empty`
 - `--no-watch`
 
+## Production monitoring (Sentry)
+
+The hosted app at [specproofoss.vercel.app](https://specproofoss.vercel.app) reports errors and performance traces to Sentry in **production only** (`VERCEL_ENV=production` or `NODE_ENV=production`). Session replay is disabled.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SENTRY_DSN` / `SENTRY_DSN` | No | Ingest DSN (defaults to the project DSN for the official deployment). Set to an empty string to opt out on self-hosted production builds. |
+| `SENTRY_AUTH_TOKEN` | No | Upload source maps during `next build` for readable stack traces in Sentry. Builds succeed without it; upload is skipped. |
+| `SENTRY_ORG` | No | Defaults to `durable-quality` (EU). |
+| `SENTRY_PROJECT` | No | Defaults to `specproof`. |
+
+On Vercel, add `SENTRY_AUTH_TOKEN` as a secret (create a token at [sentry.io](https://sentry.io) with `project:releases` and `org:read`). `VERCEL_GIT_COMMIT_SHA` is used automatically as the Sentry release.
+
+**Verify:** after deploy, open the site, trigger a client error from devtools (not the console sandbox), or check **Performance → Traces** for pageload spans. Issues appear in the [specproof project](https://durable-quality.sentry.io/) (EU region).
+
 ## License
 
 MIT
