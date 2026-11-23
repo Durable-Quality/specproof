@@ -1,13 +1,13 @@
 {
   "name": "specproof",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/Durable-Quality/specproof"
   },
-  "homepage": "https://github.com/Durable-Quality/specproof",
+  "homepage": "https://specproofoss.vercel.app",
   "keywords": [
     "openapi",
     "swagger",
