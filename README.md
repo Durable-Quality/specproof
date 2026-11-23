@@ -37,4 +37,4 @@ Run `specproof --help` for the full option list:
 
 ## License
 
-MIT
+Licensed under the [Apache License, Version 2.0](LICENSE) (Apache-2.0).
