@@ -1,6 +1,6 @@
 {
   "name": "specproof",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Audit view of a repo's API test coverage: every OpenAPI operation and response status, cross-examined against the repo's test assertions.",
   "license": "Apache-2.0",
   "repository": {
