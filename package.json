@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/Durable-Quality/specproof"
   },
-  "homepage": "https://github.com/Durable-Quality/specproof",
+  "homepage": "https://specproofoss.vercel.app",
   "keywords": [
     "openapi",
     "swagger",
